@@ -1,0 +1,5 @@
+**/.vscode
+**/x86_64
+**/x86
+**/modelBase
+**/__pycache__
