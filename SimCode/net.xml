@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<neurtwork>
+    <meta lastmodifieddate="2019-01-16">
+        <creator>Peter Mullen</creator>
+        <description>Test network file</description>
+    </meta>
+    <graph mode="static" defaultedgetype="directed">
+        <cells>
+            <cell id="0" label="Head" cellType="L1_DAC_bNAC219_1" cellName="bNAC219_L1_DAC_ec2fc5f0de"/>
+            <cell id="1" cellType="L6_BP_bAC217_1" cellName="bAC217_L6_BP_b41e8e0c23"/>
+            <cell id="2" cellType="L1_DAC_bNAC219_1" cellName="bNAC219_L1_DAC_ec2fc5f0de"/>
+            <cell id="3" label="Output" cellType="L1_DAC_bNAC219_1" cellName="bNAC219_L1_DAC_ec2fc5f0de"/>
+        </cells>
+
+        <edges>
+            <edge id="0" source="0" target="1" conDensity="0.9"/>
+            <edge id="1" source="0" target="2" conDensity="0.9"/>
+            <edge id="2" source="1" target="0" conDensity="0.9"/>
+            <edge id="3" source="2" target="1" conDensity="0.9"/>
+            <edge id="4" source="0" target="3" conDensity="0.9"/>
+        </edges>
+
+        <stimuli>
+            <stim id="0" target="0" delay="700" dur='2000' />
+        </stimuli>
+
+        <probes>
+            <probe id="0" tag="mainProbe" target="0"/>
+            <probe id="1" tag="secondProbe" target="3"/>
+        </probes>
+    </graph>
+</neurtwork>

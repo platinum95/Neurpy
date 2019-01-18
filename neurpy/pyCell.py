@@ -1,13 +1,14 @@
 import neuron
 
 class pyCell():
-    def __init__( self, cellName, **kwargs ):
+    def __init__( self, cellName, synEn=0, **kwargs ):
         if kwargs.get( "caller", "notNeurpy" ) != "neurpy":
             print( "Warning: Creating a cell without going through\
                     neurpy module, which is not recommended" )
-        neuronCall = "neuron.h.%s(0)" % cellName
+        neuronCall = "neuron.h.%s(%i)" % ( cellName, synEn )
         # Use eval to turn the cell name into a neuron function call
         print( "Calling %s" % neuronCall )
+        self.cellName = cellName
         self.neurCell = eval( neuronCall )
         self.position = [ 0.0, 0.0, 0.0 ]
         self.rotation = [ 0.0, 0.0, 0.0 ] #Euler rotation (for now)
