@@ -27,6 +27,7 @@
         <probes>
             <probe id="0" tag="mainProbe" target="0"/>
             <probe id="1" tag="secondProbe" target="3"/>
+            <probe id="2" tag="thirdProbe" target="1"/>
         </probes>
     </graph>
 </neurtwork>

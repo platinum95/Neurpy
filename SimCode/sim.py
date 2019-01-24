@@ -24,9 +24,12 @@ network = testEn.loadTopology( './SimCode/net.xml' )
 #gui = testEn.generateGUI( list( network.cellDict.values() )[ 0 ].neurCell , synapses=True )
 #gui.createMainWindow()
 
+
 testEn.runSimulation( './output.dat' )
-list( testEn.networks[0].cellDict.values() )[ 1 ].translate( [ 0.0, 500.0, 0.0 ] )
-list( testEn.networks[0].cellDict.values() )[ 2 ].translate( [ 0.0, 250.0, 0.0 ] )
+#lSize = list( testEn.networks[0].cellDict.values() )[ 1 ].getSize()
+
+#list( testEn.networks[0].cellDict.values() )[ 1 ].translate( [ 0.0, 500.0, 0.0 ] )
+#list( testEn.networks[0].cellDict.values() )[ 2 ].translate( [ 0.0, 250.0, 0.0 ] )
 
 '''
 print( "Went from %s to %s" % ( str( somaPre ), str( somaPost ) ) )
@@ -42,5 +45,5 @@ cell3.addChild( cell4, 0.5 )
 #gui = testEn.generateGUI( cell.neurCell, synapses=True )
 #gui.createMainWindow()
 
-while( 1 ):
-    pass
+#while( 1 ):
+#    pass

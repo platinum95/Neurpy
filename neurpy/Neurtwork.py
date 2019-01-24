@@ -42,12 +42,15 @@ class Neurtwork( object ):
             cellType = cell.getAttribute( "cellType" )
             cellName = cell.getAttribute( "cellName" )
             self.cellDict[ id ] = env.createCell( cellType, cellName, 1 )
+            if( cell.getAttribute( "label" ) == "Head" ):
+                print( "Enabling all stimuli for cell %s" % id )
+                self.cellDict[ id ].tempStim()
         
         for edge in edges:
             source = edge.getAttribute( "source" )
             target = edge.getAttribute( "source" )
             density = edge.getAttribute( "source" )
-            self.cellDict[ source ].addChild( self.cellDict[ target ], density )
+            self.cellDict[ source ].addChild( self.cellDict[ target ], density, 1.0 )
         
         for stim in stimuli:
             # For now this is just the same as in the sample code.

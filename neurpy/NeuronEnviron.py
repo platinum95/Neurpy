@@ -6,6 +6,7 @@ from neurpy.Neurtwork import Neurtwork
 import subprocess
 from importlib import reload
 import numpy as np
+import sys
 
 class NeuronEnviron( object ):
     def __init__(  self, modelRoot, mechanismRoot ):
@@ -42,6 +43,30 @@ class NeuronEnviron( object ):
         self.networks.append( network )
 
     def runSimulation( self, outputFilepath ):
+
+        statEvent = neuron.h.StateTransitionEvent( 1 )
+
+        tnext = neuron.h.ref(1)
+
+        def fteinit():
+            tnext[ 0 ] = 1.0 # first transition at 1.0
+            statEvent.state( 0 )   # initial state
+            print( "Starting simulation of length %ims" % neuron.h.tstop )
+
+        fih = neuron.h.FInitializeHandler( 1, fteinit )
+
+        def printStat( src ): # current state is the destination. arg gives the source
+            if( src != 0 ):
+                return
+            # Write over the same line...
+            sys.stdout.write('\r')
+            sys.stdout.flush()
+            sys.stdout.write( "Time: %ims" % int( neuron.h.t ) )
+            sys.stdout.flush()
+            tnext[0] += 1.0 # update for next transition
+
+        statEvent.transition( 0, 0, neuron.h._ref_t, tnext, ( printStat, 0 ) )
+
         timeRecording = neuron.h.Vector()
         timeRecording.record( neuron.h._ref_t, 0.1 )
         neuron.h.cvode_active( 0 )
