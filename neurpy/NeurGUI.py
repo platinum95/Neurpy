@@ -2,7 +2,7 @@ import neuron
 from neuron import gui
 
 class NeurGUI( object ):
-    def __init__( self, stimCell, enableSynapses=False ):
+    def __init__( self, recordSection, enableSynapses=False ):
         self.xres = 1200
         self.yres = 800
         self.xstart = 50
@@ -17,7 +17,8 @@ class NeurGUI( object ):
         self.rP = None
         self.synapse_plot = None
         self.synapsesEnabled = enableSynapses
-        self.stimCell = stimCell
+        self.recSec = recordSection
+        self.pwmcnt = neuron.h.PWManager[0].count
 
 
     def createMainWindow( self ):
@@ -48,7 +49,8 @@ class NeurGUI( object ):
         self.createShapePanel()
         
         self.plotvbox.adjuster(500)
-        self.rP = RingPlot( self.stimCell.soma[ 0 ]( 0.5 ) )
+
+        self.rP = RingPlot( self.recSec )                                                         
 
         self.plotvbox.intercept(0)    
         self.mainhbox.full_request(1) 
@@ -63,33 +65,43 @@ class NeurGUI( object ):
         neuron.h.fast_flush_list.remove_all()
 
         self.rP.cleanup()
-
         neuron.h.fast_flush_list.append( self.rP )
-        neuron.h.fast_flush_list.append( self.sP )
+        neuron.h.fast_flush_list.append( self.sP )                                       
 
         neuron.h.doNotify()
+        neuron.h.PWManager
+#        for i in range( self.pwmcnt, int( neuron.h.PWManager[0].count-1 ) ):
+#            neuron.h.PWManager[0].close(i)
+#            neuron.h.doNotify()
 
         neuron.h.stoprun = 0
-        
-        # TODO - reset all cell synapses
+#        cell.synapses.reset_synapses()
 
+    
     def restart( self ):
-        print( "Restarting..." )
         self.cleanup()
-
+        #self.createStimulus()
+        #cell.synapses.update_synapses(synapse_plot)
+        print( "Running simulation" )
+        neuron.h.fast_flush_list.append( self.rP )
         neuron.h.cvode_active(0)
         neuron.h.run()
-        print( "Run call finished" )
+    
+    def stop( self ):
+        neuron.h.stoprun = 1
+    
+    def setStep( self, val ):
+        neuron.h.stepcurrent = neuron.h.stepcurrent1
 
 
     def createRuncontrol( self ):                                      
-        neuron.h.xpanel( "RunControl", 0)                                                     
-        neuron.h.xbutton( "Init & Run", self.restart )                                           
-        neuron.h.xbutton( "Stop","stoprun=1" )
-        neuron.h.xvalue( "Total time", "tstop" )
-        neuron.h.xvalue( "Sim Time", "t", 0,"", 0, 1 )                                 
-        neuron.h.xvalue( "Real Time","realtime", 0,"", 0, 1 )                                 
-        neuron.h.xbutton( "Quit","quit()" )
+        neuron.h.xpanel("RunControl", 0)                                                     
+        neuron.h.xbutton("Init & Run", self.restart )                                           
+        neuron.h.xbutton("Stop", self.stop )                                                 
+        neuron.h.xvalue("Total time", "tstop")                                                 
+        neuron.h.xvalue("Sim Time","t", 0,"", 0, 1 )                                 
+        neuron.h.xvalue("Real Time","realtime", 0,"", 0, 1 )                                 
+        neuron.h.xbutton("Quit","quit()")
         
         neuron.h.xlabel("Step current")
         neuron.h.xradiobutton("No step","stepcurrent=\"none\"", 1)                                                                                
@@ -193,8 +205,16 @@ class NeurGUI( object ):
 
 
 class RingPlot( object ):
-    def __init__( self, segRec ):
+    def __init__( self, recordSection ):
+        self.g = None
+        self.clipped_voltage = None
+        self.g = None
+        self.clipped_voltage = None
+        self.clipped_time = None
+        self.voltage = None
+        self.time = None
         self.max_vec = None
+        self.recSec = recordSection
 
         # Generate graph
         self.g = neuron.h.Graph(0)
@@ -203,8 +223,8 @@ class RingPlot( object ):
         self.clip_size = 3000.0
 
         # Record voltage
-        self.voltage = neuron.h.Vector( 10000 )
-        self.voltage.record( segRec._ref_v )
+        self.voltage = neuron.h.Vector(10000)
+        self.voltage.record( self.recSec(0.5)._ref_v )
 
         # Record time
         self.time = neuron.h.Vector(10000)
@@ -235,19 +255,18 @@ class RingPlot( object ):
     def update( self ):
         # Set clipping region (in ms)
         self.clip_size = 3000.0
-        t = neuron.h.t    
+        t = neuron.h._ref_t
         # Time at right side of clipping region
         right_t = t
 
         # Time at left side of clipping region
         # Wait until time reaches clip_size to start scrolling
-        left_t = 0
+        left_t = 0.0
         if t >= self.clip_size:
-            left_t = t - self.clip_size
+             left_t = t - self.clip_size
         else:
-            left_t = 0.0
-
-  #      left_t = 3000.0
+             left_t = 0.0
+    
         dt = neuron.h.dt
         # Calculate clipped vectors
         self.clipped_voltage.copy( self.voltage, 0, left_t/dt, right_t/dt-1 )

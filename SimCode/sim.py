@@ -69,5 +69,10 @@ cell3.addChild( cell4, 0.5 )
 #gui = testEn.generateGUI( headCell.neurCell, synapses=True )
 #gui.createMainWindow()
 
+<<<<<<< HEAD
 #while( 1 ):
 #    pass
+=======
+gui = testEn.generateGUI( cell.neurCell.soma[0] )
+gui.createMainWindow()
+>>>>>>> 4cb87b1... Laptop changes, not sure what should be kept

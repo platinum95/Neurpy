@@ -91,5 +91,5 @@ class NeuronEnviron( object ):
                          
         return recs
 
-    def generateGUI( self, stimCell, synapses=False ):
-        return NeurGUI( stimCell, synapses )
+    def generateGUI( self, recSec, synapses=False ):
+        return NeurGUI( recSec, synapses )
