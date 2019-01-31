@@ -41,15 +41,17 @@ class Neurtwork( object ):
             id = cell.getAttribute( "id" )
             cellType = cell.getAttribute( "cellType" )
             cellName = cell.getAttribute( "cellName" )
-            self.cellDict[ id ] = env.createCell( cellType, cellName, 1 )
+            enSyn = 1#cell.getAttribute( "label" ) == "Head"
+            self.cellDict[ id ] = env.createCell( cellType, cellName, enSyn )
+          #  self.cellDict[ id ].tempStim()
             if( cell.getAttribute( "label" ) == "Head" ):
                 print( "Enabling all stimuli for cell %s" % id )
                 self.cellDict[ id ].tempStim()
         
         for edge in edges:
             source = edge.getAttribute( "source" )
-            target = edge.getAttribute( "source" )
-            density = edge.getAttribute( "source" )
+            target = edge.getAttribute( "target" )
+            density = edge.getAttribute( "density" )
             self.cellDict[ source ].addChild( self.cellDict[ target ], density, 1.0 )
         
         for stim in stimuli:
@@ -99,6 +101,16 @@ class Neurtwork( object ):
             newRecording.record( targetCell.neurCell.soma[ 0 ]( 0.5 )._ref_v, 0.1 )
             self.recordings.append( ( probeTag, newRecording ) )
 
+        '''
+        # Test: measure the voltage at some dendrites on the second cell.
+        for i in range( 10 ):
+        #    targetInd = self.cellDict[ "0" ].children[ i ][ 2 ]
+        #    targetRec = self.cellDict[ "0" ].neurCell.synapses.synapse_list.o( targetInd )
+            targetRec = self.cellDict[ "1" ].neurCell.dend[ i ]( 0.5 )
+            newRecording = neuron.h.Vector()
+            newRecording.record( targetRec._ref_v, 0.1 )
+            self.recordings.append( ( "dend %i" % i, newRecording ) )
+'''
         #self.nxGraph = nx.MultiDiGraph( nx.read_gexf( filePath ) )
         #plt.subplot( 122 )
         #nx.draw( self.nxGraph )

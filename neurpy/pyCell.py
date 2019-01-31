@@ -91,24 +91,31 @@ class pyCell():
         shuffle( excInd )
         numSelect = int( exciteProp * float( len( excInd ) ) )
         excInd = excInd[ 0 : numSelect ]
-
+        '''
         for ind in excInd:
             synapse = self.neurCell.synapses.synapse_list.o( ind )
             ourAxon = self.neurCell.axon[ 1 ]
             netCon = neuron.h.NetCon( ourAxon( 0.5 )._ref_v, synapse, sec=ourAxon )
             self.children.append( ( targetCell, netCon, ind ) )
             targetCell.parents.append( ( self, netCon, ind ) )
-            netCon.weight[ 0 ] = 1.0
+            netCon.weight[ 0 ] = 150.0
             netCon.delay = 0.3
-            netCon.threshold = -10
-            x = self.children[ -1 ][1].delay
-        
+            netCon.threshold = -40.0
+        '''
         for i in range( 40 ):
-            expSyn = neuron.h.ExpSyn( targetCell.neurCell.dend[ i ]( 0 ) )
-            ourSoma = self.neurCell.soma[ 0 ]
-            netCon = neuron.h.NetCon( ourSoma( 0.5 )._ref_v, expSyn, sec=ourSoma )
-            netCon.weight[ 0 ] = 1.0
-            netCon.delay = 0.3
-            netCon.threshold = -10
-            self.children.append( ( targetCell, netCon, expSyn ) )
-            targetCell.parents.append( ( self, netCon, expSyn ) )
+            expSyn = neuron.h.ExpSyn( 0.5, sec=targetCell.neurCell.dend[ i ] )
+
+            netstim = neuron.h.NetStim( )#0.5, sec=targetCell.neurCell.dend[ i ] )
+            netstim.start = 0
+            netstim.interval = 100
+            netstim.number = 1e20
+            netstim.noise = 1
+
+            #ourSoma = self.neurCell.soma[ 0 ]
+            netCon = neuron.h.NetCon( self.neurCell.soma[ 0 ](0.5)._ref_v, expSyn, sec=self.neurCell.soma[ 0 ] )
+            netCon.threshold = -40.0
+            netCon.weight[ 0 ] = 150
+            netCon.delay = 10
+            self.children.append( ( targetCell, netCon, expSyn, netstim,self.neurCell.soma[ 0 ](0.5)._ref_v ) )
+            targetCell.parents.append( ( self, netCon, expSyn,netstim,self.neurCell.soma[ 0 ](0.5)._ref_v ) )
+        
