@@ -13,11 +13,11 @@
         </cells>
 
         <edges>
-            <edge id="0" source="0" target="1" conDensity="0.9"/>
-            <edge id="1" source="0" target="2" conDensity="0.9"/>
-            <edge id="2" source="1" target="0" conDensity="0.9"/>
-            <edge id="3" source="2" target="1" conDensity="0.9"/>
-            <edge id="4" source="0" target="3" conDensity="0.9"/>
+            <edge id="0" source="0" target="1" excProportion="0.7" inhProportion="0.3" weight="1.0" delay="1.0"/>
+            <edge id="1" source="0" target="2" excProportion="0.4" inhProportion="0.4" weight="1.0" delay="1.0"/>
+            <edge id="2" source="1" target="0" excProportion="0.8" inhProportion="0.6" weight="1.0" delay="1.0"/>
+            <edge id="3" source="2" target="1" excProportion="0.3" inhProportion="0.4" weight="1.0" delay="1.0"/>
+            <edge id="4" source="0" target="3" excProportion="0.1" inhProportion="0.1" weight="1.0" delay="1.0"/>
         </edges>
 
         <stimuli>

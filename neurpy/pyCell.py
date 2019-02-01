@@ -73,49 +73,48 @@ class pyCell():
         self.position[ 1 ] += translation[ 1 ]
         self.position[ 2 ] += translation[ 2 ]
 
-    def addChild( self, targetCell, exciteProp, inhibProp ):
-        # targetSec = targetCell.dend[ 0 ].allseg()[ 0 ]]
-        # Connect to `prop` random cells for both excitatory and
-        # inhibitory
-        
-        # TEST STAGE - CONNECT ONLY TO EXCITORY
-        # TODO - CHANGE TO CONNECT TO BOTH
-        # TODO - USE GIVEN PROPORTION (REMOVE FOLLOWING LINE)
-        exciteProp = 1.0
-
+    def addChild( self, targetCell, exciteProp, inhibProp, weight, delay, threshold=None ):
+        ''' 
+        Connect to `prop` random cells for both excitatory and
+        inhibitory
+        '''
+        if( exciteProp == 0 and inhibProp == 0 ):
+            print( "Warning: Adding child cell with no connected synapses!" )
         # Start by getting the indices of the excitatory synapses
         synType = self.neurCell.synapses.pre_mtypes_excinh
-        excInd = [ i for i, x in enumerate( synType ) if x == 1 ]
+        excInd = [ ( i, 0 ) for i, x in enumerate( synType ) if x == 0 ]
+        inhInd = [ ( i, 1 ) for i, x in enumerate( synType ) if x == 1 ]
+
         # Randomly select synapses by shuffling and selecting the first
         # N indices based on the connection proportion
         shuffle( excInd )
-        numSelect = int( exciteProp * float( len( excInd ) ) )
-        excInd = excInd[ 0 : numSelect ]
-        '''
-        for ind in excInd:
-            synapse = self.neurCell.synapses.synapse_list.o( ind )
-            ourAxon = self.neurCell.axon[ 1 ]
-            netCon = neuron.h.NetCon( ourAxon( 0.5 )._ref_v, synapse, sec=ourAxon )
-            self.children.append( ( targetCell, netCon, ind ) )
-            targetCell.parents.append( ( self, netCon, ind ) )
-            netCon.weight[ 0 ] = 150.0
-            netCon.delay = 0.3
-            netCon.threshold = -40.0
-        '''
-        for i in range( 40 ):
-            expSyn = neuron.h.ExpSyn( 0.5, sec=targetCell.neurCell.dend[ i ] )
+        shuffle( inhInd )
 
-            netstim = neuron.h.NetStim( )#0.5, sec=targetCell.neurCell.dend[ i ] )
-            netstim.start = 0
-            netstim.interval = 100
-            netstim.number = 1e20
-            netstim.noise = 1
+        numSelectExc = int( exciteProp * float( len( excInd ) ) )
+        numSelectInh = int( inhibProp  * float( len( inhInd ) ) )
 
-            #ourSoma = self.neurCell.soma[ 0 ]
-            netCon = neuron.h.NetCon( self.neurCell.soma[ 0 ](0.5)._ref_v, expSyn, sec=self.neurCell.soma[ 0 ] )
-            netCon.threshold = -40.0
-            netCon.weight[ 0 ] = 150
-            netCon.delay = 10
-            self.children.append( ( targetCell, netCon, expSyn, netstim,self.neurCell.soma[ 0 ](0.5)._ref_v ) )
-            targetCell.parents.append( ( self, netCon, expSyn,netstim,self.neurCell.soma[ 0 ](0.5)._ref_v ) )
+        excInd = excInd[ 0 : numSelectExc ]
+        inhInd = inhInd[ 0 : numSelectInh ]
+        
+        # Now connect up to the synapses
+        for ind, typ in excInd + inhInd:
+            # Get the synapse object (hoc type)
+            synapse = targetCell.neurCell.synapses.synapse_list.o( ind )
+            weight = targetCell.neurCell.synapses.weights.x[ ind ]
+            delay = targetCell.neurCell.synapses.delays.x[ ind ]
+
+            # Create a new NetCon object to connect our cell to the target synapse
+            ourSoma = self.neurCell.soma[ 0 ]
+            netCon = neuron.h.NetCon( ourSoma(0.5)._ref_v, synapse, sec=ourSoma )
+
+            # Append some info about the connection to our cell and the target cell
+            self.children.append( ( targetCell, netCon, ind, typ ) )
+            targetCell.parents.append( ( self, netCon, ind, typ ) )
+
+            # Set the parameters of the NetCon
+            netCon.weight[ 0 ] = weight
+            netCon.delay = delay
+            if threshold:
+                netCon.threshold = threshold
+
         

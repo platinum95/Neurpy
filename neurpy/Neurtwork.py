@@ -30,6 +30,13 @@ class Neurtwork( object ):
         ''' Load graph from pseudo-GEXF file '''
         domFile = minidom.parse( filePath )
 
+        # Helper function; return default if attrib not found
+        def getAttribDefault( element, name, default ):
+            val = element.getAttribute( name )
+            if not val:
+                val = default
+            return val            
+
         # Locate the elements required
         cells = domFile.getElementsByTagName( 'cell' )
         edges = domFile.getElementsByTagName( 'edge' )
@@ -47,12 +54,26 @@ class Neurtwork( object ):
             if( cell.getAttribute( "label" ) == "Head" ):
                 print( "Enabling all stimuli for cell %s" % id )
                 self.cellDict[ id ].tempStim()
-        
+        i = 0
         for edge in edges:
             source = edge.getAttribute( "source" )
             target = edge.getAttribute( "target" )
-            density = edge.getAttribute( "density" )
-            self.cellDict[ source ].addChild( self.cellDict[ target ], density, 1.0 )
+            excProp = float( getAttribDefault( edge, "excProportion", "0.0" ) )
+            inhProp = float( getAttribDefault( edge, "inhProportion", "0.0" ) )
+            weight = getAttribDefault( edge, "weight", None )
+            delay = getAttribDefault( edge, "delay", None )
+            threshold = getAttribDefault( edge, "threshold", None )
+            # Can't add a connection if theres no weight/delay
+            if( not weight or not delay ):
+                "Error: No weight/delay specification for edge!"
+                continue
+            weight = float( weight )
+            delay = float( delay )
+            if threshold:
+                threshold = float( threshold )
+            
+            self.cellDict[ source ].addChild( self.cellDict[ target ], excProp, inhProp, weight, delay, threshold )
+            i += 1
         
         for stim in stimuli:
             # For now this is just the same as in the sample code.

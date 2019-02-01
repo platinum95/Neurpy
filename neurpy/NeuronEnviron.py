@@ -55,6 +55,26 @@ class NeuronEnviron( object ):
 
         fih = neuron.h.FInitializeHandler( 1, fteinit )
 
+        timeRecording = neuron.h.Vector()
+        timeRecording.record( neuron.h._ref_t, 0.1 )
+        neuron.h.cvode_active( 0 )
+
+        import matplotlib
+        matplotlib.rcParams['path.simplify'] = False
+
+        import pylab
+
+        fig = pylab.figure()
+        ax = fig.add_subplot(111)
+      #  lineA, = ax.plot(x, y, 'r-')
+      #  lineB, = ax.plot(x, y, 'r-')
+      #  lineC, = ax.plot(x, y, 'r-')
+        
+        pylab.xlabel( 'time (ms)' )
+        pylab.ylabel( 'Vm (mV)' )
+        pylab.gcf().canvas.set_window_title( 'Test' )
+
+
         def printStat( src ): # current state is the destination. arg gives the source
             if( src != 0 ):
                 return
@@ -65,23 +85,28 @@ class NeuronEnviron( object ):
             sys.stdout.flush()
             tnext[0] += 1.0 # update for next transition
 
+
         statEvent.transition( 0, 0, neuron.h._ref_t, tnext, ( printStat, 0 ) )
 
-        timeRecording = neuron.h.Vector()
-        timeRecording.record( neuron.h._ref_t, 0.1 )
-        neuron.h.cvode_active( 0 )
         neuron.h.run()
         time = np.array( timeRecording )
         recs = []
         header = 'time'
 
+        graphCols = [ 'r-', 'g-', 'b-', 'c-', 'm-' ]
+
+        i = 0
         for network in self.networks:
             for rec in network.recordings:
                 recVec = rec[ 1 ].as_numpy()
                 recNp = np.array( recVec )
                 recs.append( recNp )
                 header += ', %s' % rec[ 0 ]
+                ax.plot( time, recNp, graphCols[ i ], label=rec[ 0 ] )
+                i += 1
 
+        fig.legend()
+       # pylab.show()
         recs.insert( 0, time )
         
         if( outputFilepath ):
