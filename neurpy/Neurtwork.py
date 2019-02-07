@@ -47,9 +47,8 @@ class Neurtwork( object ):
         for cell in cells:
             id = cell.getAttribute( "id" )
             cellType = cell.getAttribute( "cellType" )
-            cellName = cell.getAttribute( "cellName" )
-            enSyn = 1#cell.getAttribute( "label" ) == "Head"
-            self.cellDict[ id ] = env.createCell( cellType, cellName, enSyn )
+            enSyn = cell.getAttribute( "label" ) == "Head"
+            self.cellDict[ id ] = env.createCell( cellType, enSyn )
           #  self.cellDict[ id ].tempStim()
             if( cell.getAttribute( "label" ) == "Head" ):
                 print( "Enabling all stimuli for cell %s" % id )
@@ -58,8 +57,8 @@ class Neurtwork( object ):
         for edge in edges:
             source = edge.getAttribute( "source" )
             target = edge.getAttribute( "target" )
-            excProp = float( getAttribDefault( edge, "excProportion", "0.0" ) )
-            inhProp = float( getAttribDefault( edge, "inhProportion", "0.0" ) )
+            synType = edge.getAttribute( "connType" )
+            conCount = edge.getAttribute( "connCount" )
             weight = getAttribDefault( edge, "weight", None )
             delay = getAttribDefault( edge, "delay", None )
             threshold = getAttribDefault( edge, "threshold", None )
@@ -67,12 +66,14 @@ class Neurtwork( object ):
             if( not weight or not delay ):
                 "Error: No weight/delay specification for edge!"
                 continue
+            synType = int( synType )
+            conCount = int( conCount )
             weight = float( weight )
             delay = float( delay )
             if threshold:
                 threshold = float( threshold )
             
-            self.cellDict[ source ].addChild( self.cellDict[ target ], excProp, inhProp, weight, delay, threshold )
+            self.cellDict[ source ].addChild( self.cellDict[ target ], synType, conCount, weight, delay, threshold )
             i += 1
         
         for stim in stimuli:

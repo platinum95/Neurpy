@@ -7,6 +7,8 @@ import subprocess
 from importlib import reload
 import numpy as np
 import sys
+import re
+import pickle
 
 class NeuronEnviron( object ):
     def __init__(  self, modelRoot, mechanismRoot ):
@@ -18,7 +20,21 @@ class NeuronEnviron( object ):
         neuron.h.tstop = 1000
         self.networks = []
 
-    def createCell( self, cellDirName, cellTypeName, synEn=0 ):
+        # Next make sure we have a cache of the mtype-> template names
+        # for all the cells
+        self.templateCachePath = './.tmpl_cache'
+        self.templateCache = {}
+        if not os.path.exists( self.templateCachePath ):
+            print( "No template cache found, creating..." )
+            self.__recurseFolders( modelRoot )
+            with open( self.templateCachePath, "wb" ) as pklFile:
+                pickle.dump( self.templateCache, pklFile )
+        else:
+            print( "Template cache found, loading..." )
+            with open( self.templateCachePath, "rb" ) as pklFile:
+                self.templateCache = pickle.load( pklFile )
+
+    def createCell( self, cellDirName, synEn=0 ):
         cellRoot = os.path.join( self.modelRoot, cellDirName )
         cellRoot = os.path.abspath( cellRoot )
         cellLoaded = self.loadedCells.get( cellDirName, False )
@@ -30,7 +46,10 @@ class NeuronEnviron( object ):
             # load biophysics and morphology
             templateFile = os.path.join( cellRoot, "template.hoc" )
             neuron.h.load_file( templateFile )
+        cellTypeName = self.templateCache[ cellDirName ]
         newCell = pyCell( cellTypeName, synEn, caller="neurpy" )
+        synapseDataPath = os.path.join( cellRoot, "synapses/synapses.tsv" )
+        newCell.loadCellSynapses( synapseDataPath )
         os.chdir( curDir )
         return newCell
 
@@ -106,7 +125,7 @@ class NeuronEnviron( object ):
                 i += 1
 
         fig.legend()
-       # pylab.show()
+        pylab.show()
         recs.insert( 0, time )
         
         if( outputFilepath ):
@@ -118,3 +137,35 @@ class NeuronEnviron( object ):
 
     def generateGUI( self, recSec, synapses=False ):
         return NeurGUI( recSec, synapses )
+
+
+    def __cacheCellName( self, templatePath ):
+        root, templateName = os.path.split( templatePath )
+        cellMTypeName = os.path.basename( root )
+        templateStr = None
+        with open( templatePath, 'r' ) as tmplFile:
+            for line in tmplFile:
+                if( re.search( r"^begintemplate.*", line ) ):
+                    line = re.sub( r"(.*begintemplate)|[\r\n]|[ ]", '', line )
+                    templateStr = line.strip()
+                    break
+        if not templateStr:
+            print( "Warning! Could not find template name for %s" % templatePath )
+            return
+        
+        self.templateCache[ cellMTypeName ] = templateStr
+
+
+    def __recurseFolders( self, rootDir ):
+        # Check for the cell template file
+        dirListing = [ sub for sub in os.listdir( rootDir ) ]
+        templateFiles = [ os.path.join( rootDir, tmpl ) for tmpl in dirListing if re.search( r'template\.hoc', tmpl ) and os.path.isfile( os.path.join( rootDir, tmpl ) ) ]
+        if templateFiles:
+            if len( templateFiles ) != 1:
+                print( "More than 1 template file? Wat" )
+            self.__cacheCellName( templateFiles[ 0 ] )    
+            
+        else:
+            dirs = [ os.path.join( rootDir, dir ) for dir in dirListing if os.path.isdir( os.path.join( rootDir, dir ) ) ]
+            for dir in dirs:
+                self.__recurseFolders( dir )

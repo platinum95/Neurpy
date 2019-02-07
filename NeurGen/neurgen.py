@@ -9,6 +9,8 @@ import os
 from xml.etree.cElementTree import Element, ElementTree, SubElement
 from xml.etree.ElementTree import tostring
 from xml.dom import minidom
+from numpy.random import normal
+
 
 class Pathway:
     '''
@@ -56,12 +58,33 @@ class NeurGen:
     '''
     Class to handle the generation of a neocortical network
     '''
-    def __init__( self ):
+    def __init__( self, modelBase ):
         self.cellIDs = {}
         self.cellNames = {}
         self.numMTypes = 0
         self.pathways = collections.defaultdict(dict)
+        self.eTypes = {}
+        self.__getETypes( modelBase )
         return
+
+    def __getETypes( self, modelBase ):
+        # Get all the model dirs by looking for folders that have
+        # L followed by a digit in the name
+        modelBasePath = os.path.dirname( modelBase )
+        dirs = os.listdir( modelBasePath )
+        dirs = [ dir for dir in dirs if re.match( r'L[0-9]', dir ) ]
+
+        for cellName in dirs:
+            cellMType = re.search( r'^(.*_.*)_.*_.*$', cellName )
+            if cellMType:
+                cellMTypeStr = cellMType.group( 1 )
+                eList = self.eTypes.get( cellMTypeStr, [] )
+                eList.append( cellName )
+                self.eTypes[ cellMTypeStr ] = eList
+            else:
+                print( "Warning: Regex search failed for %s" % cellName )
+
+
 
     def printConnectionMatrix( self ):
         '''
@@ -156,6 +179,18 @@ class NeurGen:
 
         print( "Loaded %i pathways" % i )
 
+    def getCellFromMType( self, mTypeStr ):
+        '''
+        Pathway deals with MType only, no e-types included.
+        Here we return a random e-type of a given m-type
+        '''
+        cellETypes = self.eTypes.get( mTypeStr, [] )
+        if not cellETypes:
+            print( "ERROR: No etypes found for cell %s!" % mTypeStr )
+            return None
+        return random.choice( cellETypes )
+
+
     def createNetwork( self, numCells ):
         '''
         Create a network of numCells cells given distribution
@@ -169,42 +204,107 @@ class NeurGen:
         curCell = 0
         curEdge = 0
         random.seed()
-        preMType = random.randint( 0, self.numMTypes - 1 )
 
+        # Choose a random starting cell in layer 1
+        cellsL1 = [ x for x in self.pathways.keys()
+                    if re.match( 'L1', self.cellNames[ x ] ) ]
+        preMType = random.choice( cellsL1 )
+
+        # Insert the first cell into the network specificaiton
         cells.append( 
             { 
                 "id" : str( curCell ),
                 "label" : "Head",
-                "cellType" : self.cellNames[ preMType ],
+                "cellType" : str( self.getCellFromMType( self.cellNames[ preMType ] ) ),
             }
         )
 
         for i in range( 1, numCells ):
-            # For now, pick a random post m-type
-            postMType = random.choice( list( self.pathways[ preMType ].keys() ) )
+            # Find a post-synaptic MType based on connection probabilities of the pathways.
+            # First get the sum of all the possible connection probabilities.
+            probSum = 0.0
+            for pw in list( self.pathways[ preMType ].values() ):
+                probSum += pw.connectionProbability
+            
+            # Next get a random value between 0 and this sum
+            randSample = random.uniform( 0.0, probSum )
+
+            # Next find the pathway that this sample belongs to, and choose it as our
+            # post-synaptic MType
+            postMType = None
+            curProb = 0.0
+            for mTypeStr, pw in list( self.pathways[ preMType ].items() ):
+                # For each mtype, check if our random value falls between the 
+                # range [ curProb, conProbUpper ] where conProbUpper is 
+                # just curProb + connection probability.
+                conProbUpper = curProb + pw.connectionProbability
+                if( randSample > curProb and randSample < conProbUpper ):
+                    postMType = mTypeStr
+                    break
+                # If we didn't fall into this range then move onto the next
+                # mtype, setting its lower bound to our upper bound
+                curProb = conProbUpper
+            if not postMType:
+                # If we get here, an error has occurred
+                print( "Couldn't find a cell! "
+                        "Final prob was %i, sample was %i. "
+                        "Choosing one at random." % ( int( curProb ) , randSample ) )
+                postMType = random.choice( list( self.pathways[ preMType ].keys() ) )
 
             curCell += 1
             cells.append( 
                 { 
                     "id" : str( curCell ),
-                    "cellType" : self.cellNames[ postMType ]
+                    "cellType" : str( self.getCellFromMType( self.cellNames[ postMType ] ) )
                 }
             )
 
-            pathway = self.pathways[ preMType ][ postMType ]
+            pw = self.pathways[ preMType ][ postMType ]
+            # Generate the edge data from distribution sampling
+            delay = normal( loc=pw.latencyMean, scale=pw.latencyStd )
+            connCount = normal( loc=pw.meanNumSynapsePerConn, scale=pw.numSynapsePerConnectionStd )
+            connCount = max( 1, int( connCount ) )
+            connWeight = random.uniform( 0.8, 5.0 )
+            conType = pw.synapseType
+            conCode = 0
+            # Find out what kind of synapse we're dealing with
+            if( re.search( 'inhibitory', conType, re.IGNORECASE ) ):
+                conCode = 1
+            elif( re.search( 'excitatory', conType, re.IGNORECASE ) ):
+                conCode = 0
+            else:
+                print( "Unknown connection type: %s" % conType )
+            
+            # Construct the edge object
             edges.append( 
                 { 
                     "id" : str( curEdge ),
                     "source" : str( curCell - 1 ),
                     "target" : str( curCell ),
-                    "excProportion" : "0.7",
-                    "inhProportion" : "0.3",
-                    "weight" : "1.0",
-                    "delay" : "1.0",
+                    "connType" : str( conCode ),
+                    "connCount" : str( connCount ),
+                    "weight" : str( connWeight ),
+                    "delay" : str( delay )
                 }
             )
             curEdge += 1
             preMType = postMType
+        
+        # Place a probe on the input and the output
+        probes.append( 
+            { 
+                "id" : str( 0 ),
+                "target" : str( 0 ),
+                "tag" : "headProbe"
+            }
+        )
+        probes.append( 
+            { 
+                "id" : str( 1 ),
+                "target" : str( curCell ),
+                "tag" : "tailProbe"
+            }
+        )
 
         
         docElement = Element( "Neurtwork" )
@@ -233,16 +333,13 @@ class NeurGen:
         return networkXml
         
 
-        
-
-
 if __name__ == "__main__":
     print( "Starting" )
-    ng = NeurGen()
+    ng = NeurGen( './modelBase/' )
     print( "Loading data" )
-    ng.loadPathwayData( 'physiology_pathways.json', 'anatomy_pathways.json' )
+    ng.loadPathwayData( './NeurGen/physiology_pathways.json', './NeurGen/anatomy_pathways.json' )
     print( "Finished, %i mtypes" % ng.numMTypes )
-    ng.printConnectionMatrix()
+ #   ng.printConnectionMatrix()
 
     fileBase = os.path.dirname( "./networks/" )
     netNameBase = "testwork"
