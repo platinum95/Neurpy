@@ -1,0 +1,28 @@
+<?xml version="1.0" ?>
+<Neurtwork>
+   <graph defaultedgetype="directed" mode="static">
+      <cells>
+         <cell cellType="L1" id="0" label="Node"/>
+         <cell cellType="L23" id="1" label="Leaf1"/>
+         <cell cellType="L4" id="2" label="Leaf2"/>
+         <cell cellType="L5" id="3" label="Leaf3"/>
+         <cell cellType="random" id="4" label="Leaf4"/>
+      </cells>
+      <edges>
+         <edge id="0" source="1" target="0" />
+         <edge id="1" source="2" target="0" />
+         <edge id="2" source="3" target="0" />
+         <edge id="3" source="4" target="0" />
+      </edges>
+      <stimuli>
+         <stim id="0" target="1" />
+         <stim id="1" target="2" />
+         <stim id="2" target="3" />
+         <stim id="3" target="4" />
+      <stimuli/>
+
+      <probes>
+         <probe id="0" target="0" label="NodeProbe" />
+      <probes/>
+   </graph>
+</Neurtwork>
