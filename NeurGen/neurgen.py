@@ -352,6 +352,21 @@ class NeurGen:
 
         return networkXml
 
+    def loadCell( self, cell ):
+        cType = cell[ 1 ]
+        if( cType == "any" ):
+            
+
+    def loadCells( self, source, target=None ):
+        '''
+        Load source cell if target is None, else
+        load target based on the edge probability
+        '''
+        # Load in the source cell if required
+        if( source[ 3 ] == 0 ):
+
+
+
     def createNetwork( self, topologyPath, numCells ):
         '''
         Create a network of numCells cells given distribution
@@ -406,6 +421,9 @@ class NeurGen:
             edgeTarget = edge.getAttribute( "target" )
             edgeTup = ( edgeId, edgeSource, edgeTarget )
             edges.append( edgeTup )
+            # Load in the source cell.
+            sourceCell = interCell[ edgeSource ]
+
         
 
         
