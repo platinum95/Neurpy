@@ -382,38 +382,32 @@ class NeurGen:
         stimuli = domFile.getElementsByTagName( 'stim' )
         probes = domFile.getElementsByTagName( 'probe' )
 
+        # Intermediate cell list of tuples of form:
+        # ( id, cellStr, label, selected )
+        # where id is the unique cell id, cellStr is the cell 
+        # string identifier (placeholder for layer, actual cell
+        # name, or "any"), and selected is a flag indicating if
+        # the cell is a placeholder or actually chosen/loaded
+
+        interCell = {}
         # Load in each cell
         for cell in cells:
-            id = cell.getAttribute( "id" )
+            cellId = cell.getAttribute( "id" )
             cellType = cell.getAttribute( "cellType" )
-            enSyn = cell.getAttribute( "label" ) == "Head"
-            self.cellDict[ id ] = env.createCell( cellType, enSyn )
-          #  self.cellDict[ id ].tempStim()
-            if( cell.getAttribute( "label" ) == "Head" ):
-                print( "Enabling all stimuli for cell %s" % id )
-                self.cellDict[ id ].tempStim()
-        i = 0
+            label = cell.getAttribute( "label" )
+            cellTup = ( cellId, cellType, label, 0 )
+            interCell[ cellId ] = cellTup
+        
+        # Tuple of id, source, target
+        edges = []
         for edge in edges:
-            source = edge.getAttribute( "source" )
-            target = edge.getAttribute( "target" )
-            synType = edge.getAttribute( "connType" )
-            conCount = edge.getAttribute( "connCount" )
-            weight = getAttribDefault( edge, "weight", None )
-            delay = getAttribDefault( edge, "delay", None )
-            threshold = getAttribDefault( edge, "threshold", None )
-            # Can't add a connection if theres no weight/delay
-            if( not weight or not delay ):
-                "Error: No weight/delay specification for edge!"
-                continue
-            synType = int( synType )
-            conCount = int( conCount )
-            weight = float( weight )
-            delay = float( delay )
-            if threshold:
-                threshold = float( threshold )
-            
-            self.cellDict[ source ].addChild( self.cellDict[ target ], synType, conCount, weight, delay, threshold )
-            i += 1
+            edgeId = edge.getAttribute( "id" )
+            edgeSource = edge.getAttribute( "source" )
+            edgeTarget = edge.getAttribute( "target" )
+            edgeTup = ( edgeId, edgeSource, edgeTarget )
+            edges.append( edgeTup )
+        
+
         
         for stim in stimuli:
             # For now this is just the same as in the sample code.
