@@ -352,24 +352,113 @@ class NeurGen:
 
         return networkXml
 
-    def loadCell( self, cell ):
-        cType = cell[ 1 ]
+    def loadSingleCell( self, cType, cellList ):
+        preMtype = ''
         if( cType == "any" ):
-            
+            preMType = self.cellNames[ random.choice( cellList ) ]
+        else:
+            cellNameList = [ self.cellNames[ x ]  for x in cellList ]
+            validCells = [ x for x in cellNameList
+                            if re.match( cType, x ) ]
+            if not validCells:
+                raise ValueError( "Warning! No valid cells found for %s" % 
+                                  cType )
+            preMtype = random.choice( validCells )
+        return preMtype
 
-    def loadCells( self, source, target=None ):
+    def getPathwayFromProb( self, pathList ):
+        # Find a post-synaptic MType based on connection 
+        # probabilities of the pathways.
+        # First get the sum of all the possible connection probabilities.
+        probSum = 0.0
+        for pw in pathList:
+            probSum += pw.connectionProbability
+        
+        # Next get a random value between 0 and this sum
+        randSample = random.uniform( 0.0, probSum )
+
+        # Next find the pathway that this sample belongs to, 
+        # and choose it as our post-synaptic MType
+        pathway = None
+        curProb = 0.0
+        for pw in pathList:
+            # For each mtype, check if our random value falls between the 
+            # range [ curProb, conProbUpper ] where conProbUpper is 
+            # just curProb + connection probability.
+            conProbUpper = curProb + pw.connectionProbability
+            if( randSample > curProb and randSample < conProbUpper ):
+                pathway = pw
+                break
+            # If we didn't fall into this range then move onto the next
+            # mtype, setting its lower bound to our upper bound
+            curProb = conProbUpper
+        if not pathway:
+            # If we get here, an error has occurred
+            print( "Couldn't find a cell! "
+                    "Final prob was %i, sample was %i. "
+                    "Choosing one at random." % 
+                        ( int( curProb ) , randSample ) )
+            pathway = random.choice( pathList )
+        
+        return pathway
+
+    def loadCellsFromEdge( self, sourceId, targetId, netCellList ):
         '''
         Load source cell if target is None, else
         load target based on the edge probability
         '''
-        # Load in the source cell if required
-        if( source[ 3 ] == 0 ):
+        source = netCellList[ sourceId ]
+        target = netCellList[ targetId ]
+        # Get the current status of the cells (chosen/not chosen)
+        sourceChosen = source[ 3 ]
+        targetChosen = target[ 3 ]
 
+        # If neither have been loaded, load the source cell
+        if not sourceChosen and not targetChosen:
+            source[ 1 ] = self.loadSingleCell( source[ 1 ], 
+                                               self.pathways.keys() )
+            source[ 3 ] = True
+            # Now load target based on the source
+            sourceCellID = self.getSetID( source[ 1 ] )
+            validTargets = self.pathways[ sourceCellID ].items()
+            validTargets = [ pw for x, pw in validTargets
+                             if re.match( target[ 1 ], self.cellNames[ x ] ) ]
+            pWay = self.getPathwayFromProb( validTargets )
+            target[ 1 ] = pWay.postCell
+            target[ 3 ] = True
+        
+        elif sourceChosen and not targetChosen:
+            validTargets = self.pathways[ source[ 1 ] ].items()
+            validTargets = [ pw for x, pw in validTargets
+                             if re.match( target[ 1 ], x ) ]
+            pWay = self.getPathwayFromProb( validTargets )
+            target[ 1 ] = pWay.postCell
+            target[ 3 ] = True
+        
+        elif not sourceChosen and targetChosen:
+            targetCellID = self.getSetID( target[ 1 ] )
+            validSourceIds = [ x for x, pws in self.pathways.items() 
+                               if ( targetCellID in pws.keys() ) ]
+            validPws = []
+            for sId in validSourceIds:
+                for tId, pw in self.pathways[ sId ].items():
+                    if tId == targetCellID:
+                        validPws.append( pw )
 
+            pWay = self.getPathwayFromProb( validPws )
+            source[ 1 ] = pWay.preCell
+            source[ 3 ] = True
+        
+        else:
+            # Both already loaded
+            pass
 
-    def createNetwork( self, topologyPath, numCells ):
+        netCellList[ sourceId ] = source
+        netCellList[ targetId ] = target
+
+    def createNetwork( self, topologyPath ):
         '''
-        Create a network of numCells cells given distribution
+        Create a network of cells given distribution
         data loaded in from pathway files and a topology template from file
         '''
         cells = []
@@ -392,10 +481,10 @@ class NeurGen:
             return val            
 
         # Locate the elements required
-        cells = domFile.getElementsByTagName( 'cell' )
-        edges = domFile.getElementsByTagName( 'edge' )
-        stimuli = domFile.getElementsByTagName( 'stim' )
-        probes = domFile.getElementsByTagName( 'probe' )
+        templCells = domFile.getElementsByTagName( 'cell' )
+        templEdges = domFile.getElementsByTagName( 'edge' )
+        templStimuli = domFile.getElementsByTagName( 'stim' )
+        templProbes = domFile.getElementsByTagName( 'probe' )
 
         # Intermediate cell list of tuples of form:
         # ( id, cellStr, label, selected )
@@ -406,16 +495,18 @@ class NeurGen:
 
         interCell = {}
         # Load in each cell
-        for cell in cells:
+        for cell in templCells:
             cellId = cell.getAttribute( "id" )
             cellType = cell.getAttribute( "cellType" )
             label = cell.getAttribute( "label" )
-            cellTup = ( cellId, cellType, label, 0 )
+            # Check if using a full-spec cell or a regex max
+            cellChosen = ( len( cellType ) > 4 )
+            cellTup = [ cellId, cellType, label, cellChosen ]
             interCell[ cellId ] = cellTup
         
         # Tuple of id, source, target
         edges = []
-        for edge in edges:
+        for edge in templEdges:
             edgeId = edge.getAttribute( "id" )
             edgeSource = edge.getAttribute( "source" )
             edgeTarget = edge.getAttribute( "target" )
@@ -423,117 +514,58 @@ class NeurGen:
             edges.append( edgeTup )
             # Load in the source cell.
             sourceCell = interCell[ edgeSource ]
+            targetCell = interCell[ edgeTarget ]
+            self.loadCellsFromEdge( sourceCell[ 0 ], targetCell[ 0 ], interCell )
 
-        
-
-        
-        for stim in stimuli:
+        stims = []
+        for stim in templStimuli:
             # For now this is just the same as in the sample code.
             # May change later to something else
 
             target = stim.getAttribute( 'target' )
             stimFile = stim.getAttribute( 'stimFile' )
-            delay = float( stim.getAttribute( 'delay' ) )
-            dur = float( stim.getAttribute( 'dur' ) )
+            getAttribDefault( stim, "delay", 0.0 )
+            delay = float( getAttribDefault( stim, "delay", 0.0 ) )
+            dur = float( getAttribDefault( stim, "dur", 0.0 ) )
 
-            cell = self.cellDict[ target ].neurCell
-
-            if not stimFile:
-                stimFile = './current_amps.dat'
+            stims.append( ( target, stimFile, delay, dur ) )
             
-            step_amp = [0] * 3
-            with open( 'current_amps.dat', 'r' ) as current_amps_file:
-                first_line = current_amps_file.read().split( '\n' )[ 0 ].strip()
-                hyp_amp, step_amp[ 0 ], step_amp[ 1 ], step_amp[ 2 ] = first_line.split( ' ' )
-
-            iclamp = neuron.h.IClamp( 0.5, sec=cell.soma[ 0 ] )
-            iclamp.delay = 700
-            iclamp.dur = 2000
-            iclamp.amp = float( step_amp[ 0 ] )
-
-            self.stimuli.append( iclamp )
-
-            hyp_iclamp = neuron.h.IClamp( 0.5, sec=cell.soma[ 0 ] )
-            hyp_iclamp.delay = 0
-            hyp_iclamp.dur = 3000
-            hyp_iclamp.amp = float( hyp_amp )
-
-            self.stimuli.append( hyp_iclamp )
-            
-
-
-        for probe in probes:
+        probes = []
+        for probe in templProbes:
             target = probe.getAttribute( "target" )
             probeTag = probe.getAttribute( "tag" )
             probeID = probe.getAttribute( "id" )
-            targetCell = self.cellDict[ target ]
+            targetCell = interCell[ target ][ 1 ]
             if not probeTag:
-                probeTag = "%s_%s" %( targetCell.cellName, probeID )
+                probeTag = "%s_%s" %( targetCell, probeID )
             
-            newRecording = neuron.h.Vector()
-            newRecording.record( targetCell.neurCell.soma[ 0 ]( 0.5 )._ref_v, 0.1 )
-            self.recordings.append( ( probeTag, newRecording ) )
+            probes.append( ( probeID, target, probeTag ) )
 
-        # Choose a random starting cell in layer 1
-        cellsL1 = [ x for x in self.pathways.keys()
-                    if re.match( 'L1', self.cellNames[ x ] ) ]
-        preMType = random.choice( cellsL1 )
 
-        # Insert the first cell into the network specificaiton
-        cells.append( 
-            { 
-                "id" : str( curCell ),
-                "label" : "Head",
-                "cellType" : str( 
-                    self.getCellFromMType( self.cellNames[ preMType ] ) ),
-            }
-        )
+        outCells = []
+        outEdges = []
+        outStims = []
+        outProbes = []
 
-        for i in range( 1, numCells ):
-            # Find a post-synaptic MType based on connection 
-            # probabilities of the pathways.
-            # First get the sum of all the possible connection probabilities.
-            probSum = 0.0
-            for pw in list( self.pathways[ preMType ].values() ):
-                probSum += pw.connectionProbability
-            
-            # Next get a random value between 0 and this sum
-            randSample = random.uniform( 0.0, probSum )
-
-            # Next find the pathway that this sample belongs to, 
-            # and choose it as our post-synaptic MType
-            postMType = None
-            curProb = 0.0
-            for mTypeStr, pw in list( self.pathways[ preMType ].items() ):
-                # For each mtype, check if our random value falls between the 
-                # range [ curProb, conProbUpper ] where conProbUpper is 
-                # just curProb + connection probability.
-                conProbUpper = curProb + pw.connectionProbability
-                if( randSample > curProb and randSample < conProbUpper ):
-                    postMType = mTypeStr
-                    break
-                # If we didn't fall into this range then move onto the next
-                # mtype, setting its lower bound to our upper bound
-                curProb = conProbUpper
-            if not postMType:
-                # If we get here, an error has occurred
-                print( "Couldn't find a cell! "
-                        "Final prob was %i, sample was %i. "
-                        "Choosing one at random." % 
-                            ( int( curProb ) , randSample ) )
-                postMType = random.choice( 
-                    list( self.pathways[ preMType ].keys() ) )
-
-            curCell += 1
-            cells.append( 
+        for cell in interCell.values():
+            if not cell[ 3 ]:
+                continue
+            outCells.append( 
                 { 
-                    "id" : str( curCell ),
-                    "cellType" : str( 
-                        self.getCellFromMType( self.cellNames[ postMType ] ) )
+                    "id" : str( cell[ 0 ] ),
+                    "label" : str( cell[ 2 ] ),
+                    "cellType" : str( self.getCellFromMType( cell[ 1 ] ) )
                 }
             )
 
-            pw = self.pathways[ preMType ][ postMType ]
+        for edge in edges:
+            preCell = interCell[ edge[ 1 ] ]
+            postCell = interCell[ edge[ 2 ] ]
+
+            preCellId = self.getSetID( preCell[ 1 ] )
+            postCellId = self.getSetID( postCell[ 1 ] )
+            pw = self.pathways[ preCellId ][ postCellId ]
+
             # Generate the edge data from distribution sampling
             delay = normal( loc=pw.latencyMean, scale=pw.latencyStd )
             connCount = normal( loc=pw.meanNumSynapsePerConn,
@@ -551,35 +583,27 @@ class NeurGen:
                 print( "Unknown connection type: %s" % conType )
             
             # Construct the edge object
-            edges.append( 
+            outEdges.append( 
                 { 
-                    "id" : str( curEdge ),
-                    "source" : str( curCell - 1 ),
-                    "target" : str( curCell ),
+                    "id" : str( edge[ 0 ] ),
+                    "source" : str( edge[ 1 ] ),
+                    "target" : str( edge[ 2 ] ),
                     "connType" : str( conCode ),
                     "connCount" : str( connCount ),
                     "weight" : str( connWeight ),
                     "delay" : str( delay )
                 }
             )
-            curEdge += 1
-            preMType = postMType
-        
-        # Place a probe on the input and the output
-        probes.append( 
-            { 
-                "id" : str( 0 ),
-                "target" : str( 0 ),
-                "tag" : "headProbe"
-            }
-        )
-        probes.append( 
-            { 
-                "id" : str( 1 ),
-                "target" : str( curCell ),
-                "tag" : "tailProbe"
-            }
-        )
+        for probe in probes:
+            # Place a probe on the input and the output
+            outProbes.append( 
+                { 
+                    "id" : str( probe[ 0 ] ),
+                    "target" : str( probe[ 1 ] ),
+                    "tag" : str( probe[ 2 ] )
+                }
+            )
+
 
         
         docElement = Element( "Neurtwork" )
@@ -588,19 +612,19 @@ class NeurGen:
                                             "defaultedgetype":"directed" } )
         
         cellsElement = SubElement( graphElement, "cells" )
-        for cell in cells:
+        for cell in outCells:
             cellElement = SubElement( cellsElement, "cell", attrib=cell )
 
         edgesElement = SubElement( graphElement, "edges" )
-        for edge in edges:
+        for edge in outEdges:
             edgeElement = SubElement( edgesElement, "edge", attrib=edge )
 
         stimuliElement = SubElement( graphElement, "stimuli" )
-        for stim in stimuli:
+        for stim in outStims:
             stimulusElement = SubElement( stimuliElement, "stim", attrib=stim )
 
         probesElement = SubElement( graphElement, "probes" )
-        for probe in probes:
+        for probe in outProbes:
             probeElement = SubElement( probesElement, "probe", attrib=probe )
 
         # Add lines + indentations
@@ -624,7 +648,7 @@ if __name__ == "__main__":
     if not os.path.exists( fileBase ):
         os.makedirs( fileBase )
     
-
+    sys.argv.append( "./NeurGen/4-leaf-topology.xml" )
     # Lets generate 10 random networks
     for i in range( 20 ):
         if( len( sys.argv ) > 1 ):

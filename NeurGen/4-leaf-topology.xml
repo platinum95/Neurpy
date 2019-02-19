@@ -3,10 +3,10 @@
    <graph defaultedgetype="directed" mode="static">
       <cells>
          <cell cellType="L1" id="0" label="Node"/>
-         <cell cellType="L23" id="1" label="Leaf1"/>
+         <cell cellType=".*" id="1" label="Leaf1"/>
          <cell cellType="L4" id="2" label="Leaf2"/>
-         <cell cellType="L5" id="3" label="Leaf3"/>
-         <cell cellType="random" id="4" label="Leaf4"/>
+         <cell cellType=".*" id="3" label="Leaf3"/>
+         <cell cellType=".*" id="4" label="Leaf4"/>
       </cells>
       <edges>
          <edge id="0" source="1" target="0" />
@@ -19,10 +19,10 @@
          <stim id="1" target="2" />
          <stim id="2" target="3" />
          <stim id="3" target="4" />
-      <stimuli/>
+      </stimuli>
 
       <probes>
          <probe id="0" target="0" label="NodeProbe" />
-      <probes/>
+      </probes>
    </graph>
 </Neurtwork>
