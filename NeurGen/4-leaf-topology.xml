@@ -3,10 +3,10 @@
    <graph defaultedgetype="directed" mode="static">
       <cells>
          <cell cellType="L1" id="0" label="Node"/>
-         <cell cellType=".*" id="1" label="Leaf1"/>
-         <cell cellType="L4" id="2" label="Leaf2"/>
-         <cell cellType=".*" id="3" label="Leaf3"/>
-         <cell cellType=".*" id="4" label="Leaf4"/>
+         <cell cellType=".*" id="1" label="Head"/>
+         <cell cellType=".*" id="2" label="Head"/>
+         <cell cellType=".*" id="3" label="Head"/>
+         <cell cellType=".*" id="4" label="Head"/>
       </cells>
       <edges>
          <edge id="0" source="1" target="0" />

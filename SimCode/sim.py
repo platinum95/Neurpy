@@ -35,7 +35,6 @@ if not os.path.exists( './x86_64' ):
 
 netEnv = NeuronEnviron( "./modelBase", "./modelBase/global_mechanisms" )
 network = netEnv.loadTopology( "./networks/testwork-00.xml" )
-
 outPath = os.path.join( "./outputs/", "output.csv" )    
 netEnv.runSimulation( outPath )
 

@@ -415,17 +415,23 @@ class NeurGen:
 
         # If neither have been loaded, load the source cell
         if not sourceChosen and not targetChosen:
-            source[ 1 ] = self.loadSingleCell( source[ 1 ], 
-                                               self.pathways.keys() )
-            source[ 3 ] = True
-            # Now load target based on the source
-            sourceCellID = self.getSetID( source[ 1 ] )
-            validTargets = self.pathways[ sourceCellID ].items()
-            validTargets = [ pw for x, pw in validTargets
-                             if re.match( target[ 1 ], self.cellNames[ x ] ) ]
-            pWay = self.getPathwayFromProb( validTargets )
-            target[ 1 ] = pWay.postCell
-            target[ 3 ] = True
+            chosen = False
+            origSrc = source[ 1 ]
+            while not chosen:
+                source[ 1 ] = self.loadSingleCell( origSrc,#source[ 1 ], 
+                                                self.pathways.keys() )
+                source[ 3 ] = True
+                # Now load target based on the source
+                sourceCellID = self.getSetID( source[ 1 ] )
+                validTargets = self.pathways[ sourceCellID ].items()
+                validTargets = [ pw for x, pw in validTargets
+                                if re.match( target[ 1 ], self.cellNames[ x ] ) ]
+                if not validTargets:
+                    continue
+                chosen = True
+                pWay = self.getPathwayFromProb( validTargets )
+                target[ 1 ] = pWay.postCell
+                target[ 3 ] = True
         
         elif sourceChosen and not targetChosen:
             validTargets = self.pathways[ source[ 1 ] ].items()
