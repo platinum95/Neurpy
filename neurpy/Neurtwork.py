@@ -1,8 +1,10 @@
 
+from neurpy.CellStim import CellStim
 import networkx as nx
 import matplotlib.pyplot as plt
 from xml.dom import minidom
 import neuron
+import random
 
 class Neurtwork( object ):
     ''' 
@@ -47,7 +49,7 @@ class Neurtwork( object ):
         for cell in cells:
             id = cell.getAttribute( "id" )
             cellType = cell.getAttribute( "cellType" )
-            enSyn = cell.getAttribute( "label" ) == "Head"
+            enSyn = 0#cell.getAttribute( "label" ) == "Head"
             self.cellDict[ id ] = env.createCell( cellType, enSyn )
           #  self.cellDict[ id ].tempStim()
             if( cell.getAttribute( "label" ) == "Head" ):
@@ -73,7 +75,9 @@ class Neurtwork( object ):
             if threshold:
                 threshold = float( threshold )
             
-            self.cellDict[ source ].addChild( self.cellDict[ target ], synType, conCount, weight, delay, threshold )
+            self.cellDict[ source ].addChild( self.cellDict[ target ], 
+                                              synType, conCount, weight, 
+                                              delay, threshold )
             i += 1
         
         for stim in stimuli:
@@ -84,30 +88,43 @@ class Neurtwork( object ):
             stimFile = stim.getAttribute( 'stimFile' )
             delay = float( stim.getAttribute( 'delay' ) )
             dur = float( stim.getAttribute( 'dur' ) )
+            prob = 0.5
+            stimEn = False
 
-            cell = self.cellDict[ target ].neurCell
+            cell = self.cellDict[ target ]
+            cellStim = CellStim()
+            cellStim.createStim()
 
-            if not stimFile:
-                stimFile = './current_amps.dat'
+            for syn in cell.synapses.excSyn:
+                if not syn.initialised:
+                    syn.initialise()
+                cellStim.connectToSynapse( syn.synapse )
+
+            self.stimuli.append( [ target, delay, dur, prob, [], cellStim ] )
+
+
+            # if not stimFile:
+
+            #     stimFile = './current_amps.dat'
             
-            step_amp = [0] * 3
-            with open( 'current_amps.dat', 'r' ) as current_amps_file:
-                first_line = current_amps_file.read().split( '\n' )[ 0 ].strip()
-                hyp_amp, step_amp[ 0 ], step_amp[ 1 ], step_amp[ 2 ] = first_line.split( ' ' )
+            # step_amp = [0] * 3
+            # with open( 'current_amps.dat', 'r' ) as current_amps_file:
+            #     first_line = current_amps_file.read().split( '\n' )[ 0 ].strip()
+            #     hyp_amp, step_amp[ 0 ], step_amp[ 1 ], step_amp[ 2 ] = first_line.split( ' ' )
 
-            iclamp = neuron.h.IClamp( 0.5, sec=cell.soma[ 0 ] )
-            iclamp.delay = 700
-            iclamp.dur = 2000
-            iclamp.amp = float( step_amp[ 0 ] )
+            # iclamp = neuron.h.IClamp( 0.5, sec=cell.soma[ 0 ] )
+            # iclamp.delay = 700
+            # iclamp.dur = 2000
+            # iclamp.amp = float( step_amp[ 0 ] )
 
-            self.stimuli.append( iclamp )
+            # self.stimuli.append( iclamp )
 
-            hyp_iclamp = neuron.h.IClamp( 0.5, sec=cell.soma[ 0 ] )
-            hyp_iclamp.delay = 0
-            hyp_iclamp.dur = 3000
-            hyp_iclamp.amp = float( hyp_amp )
+            # hyp_iclamp = neuron.h.IClamp( 0.5, sec=cell.soma[ 0 ] )
+            # hyp_iclamp.delay = 0
+            # hyp_iclamp.dur = 3000
+            # hyp_iclamp.amp = float( hyp_amp )
 
-            self.stimuli.append( hyp_iclamp )
+            # self.stimuli.append( hyp_iclamp )
             
 
 
@@ -121,7 +138,7 @@ class Neurtwork( object ):
             
             newRecording = neuron.h.Vector()
             newRecording.record( targetCell.neurCell.soma[ 0 ]( 0.5 )._ref_v, 0.1 )
-            self.recordings.append( ( probeTag, newRecording ) )
+            self.recordings.append( ( probeTag, newRecording, target ) )
 
         '''
         # Test: measure the voltage at some dendrites on the second cell.
@@ -136,6 +153,8 @@ class Neurtwork( object ):
         #self.nxGraph = nx.MultiDiGraph( nx.read_gexf( filePath ) )
         #plt.subplot( 122 )
         #nx.draw( self.nxGraph )
-    
-    def simulate( self ):
-        pass
+
+    def updateStimuli( self ):
+        for stim in self.stimuli:
+            stim[ 5 ].updateStimulus()
+

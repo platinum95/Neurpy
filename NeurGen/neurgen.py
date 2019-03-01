@@ -186,6 +186,9 @@ class NeurGen:
                     # Make a pathway object, set the data, and store
                     pWay = Pathway( anPathway[ 1 ], phPathway, 
                                     preCell, postCell )
+                    if not re.search( 'excitatory', pWay.synapseType, 
+                                      re.IGNORECASE ):
+                        continue
                     i += 1
                     self.pathways[ preID ][ postID ] = pWay
 
@@ -610,6 +613,16 @@ class NeurGen:
                 }
             )
 
+        for stim in stims:
+            outStims.append(
+                {
+                    "target"    : str( stim[ 0 ] ),
+                    "stimFile"  : str( stim[ 1 ] ),
+                    "delay"     : str( stim[ 2 ] ),
+                    "dur"       : str( stim[ 3 ] )
+                }
+            )
+
 
         
         docElement = Element( "Neurtwork" )
@@ -655,8 +668,8 @@ if __name__ == "__main__":
         os.makedirs( fileBase )
     
     sys.argv.append( "./NeurGen/4-leaf-topology.xml" )
-    # Lets generate 10 random networks
-    for i in range( 20 ):
+    # Lets generate 1000 random networks
+    for i in range( 10000 ):
         if( len( sys.argv ) > 1 ):
             topologyPath = sys.argv[ 1 ]
             network = ng.createNetwork( topologyPath )

@@ -20,15 +20,19 @@ class pyCell():
         self.synapses = None
 
     def loadCellSynapses( self, synapsePath ):
-        self.synapses = Synapses( synapsePath )
+        self.synapses = Synapses( synapsePath, self.neurCell )
 
     
     def tempStim( self ):
+        pass
         # Temp function to turn on all excitatory stimuli
-        synType = self.neurCell.synapses.pre_mtypes_excinh
-        excInd = [ i for i, x in enumerate( synType ) if x == 1 ]
-        for ind in excInd:
-            self.neurCell.synapses.netcon_list.o( ind ).weight[ 0 ] = 1.0
+        # synType = self.neurCell.synapses.pre_mtypes_excinh
+        # excInd = [ i for i, x in enumerate( synType ) if x == 0 ]
+        # for ind in excInd:
+        #     mtypeNetcons = self.neurCell.synapses.pre_mtype_netconlists.o( ind )
+        #     for netcon in mtypeNetcons:
+        #         netcon.weight[ 0 ] = 1.0
+        #     #self.neurCell.synapses.netcon_list.o( ind ).weight[ 0 ] = 10.0
 
 
 
@@ -101,11 +105,11 @@ class pyCell():
         # Randomly select synapses by shuffling and selecting the first
         # N indices based on the connection proportion
         shuffle( synapses )
-
+        conCount = len( synapses ) - 1
         synapses = synapses[ 0 : conCount ]
         
         for syn in synapses:
-            syn.initialise( targetCell.neurCell )
+            syn.initialise( )
 
             # Create a new NetCon object to connect our cell to the target synapse
             ourSoma = self.neurCell.soma[ 0 ]
@@ -146,8 +150,9 @@ class pyCell():
 
 
 class Synapse():
-    def __init__( self ):
+    def __init__( self, cellRef ):
         self.synapseId = None
+        self.synapse = None
         self.preCellId = None
         self.preMType = None
         self.sectionlistId = None
@@ -164,14 +169,18 @@ class Synapse():
         self.section = None
         self.sectionListName = ''
         self.synapseTypeName = ''
+        self.synapseType = None
         self.rnList = []
+        self.cellRef = cellRef
 
-    def initialise( self, celRef ):
+    def initialise( self ):
         '''
         Connect synapse to the given position on the cell
         '''
         if self.initialised:
             return
+
+        celRef = self.cellRef
 
         # Create sectionref to the section the synapse will be placed on
         if ( self.sectionlistId == 0 ):
@@ -199,6 +208,7 @@ class Synapse():
         # excitatory
         if self.synType < 100:
             self.synapseTypeName = "inhibitory"
+            self.synapseType = 1
             self.synapse = neuron.h.ProbGABAAB_EMS( self.segX, sec=self.section.sec )
             self.synapse.tau_d_GABAA  = self.tau_d
             rng = neuron.h.Random()
@@ -207,6 +217,7 @@ class Synapse():
             self.synapse.tau_r_GABAA = rng.repick()
         else:
             self.synapseTypeName = "excitatory"
+            self.synapseType = 0
             self.synapse = neuron.h.ProbAMPANMDA_EMS( self.segX, sec=self.section.sec )
             self.synapse.tau_d_AMPA = self.tau_d
 
@@ -228,7 +239,7 @@ class Synapse():
 
 
 class Synapses():
-    def __init__( self, synInfoPath ):
+    def __init__( self, synInfoPath, cellRef ):
         self.synapseList = []
         self.excSyn = []
         self.inhSyn = []
@@ -251,7 +262,7 @@ class Synapses():
         numCols = int(  len( synDataList[ 0 ] ) )
 
         for idx, synData in enumerate( synDataList ):
-            newSyn = Synapse()
+            newSyn = Synapse( cellRef )
             newSyn.synapseId = int( synData[ 0 ] )
             newSyn.preCellId = int( synData[ 1 ] )
             newSyn.preMType = int( synData[ 2 ] )
@@ -266,6 +277,7 @@ class Synapses():
             newSyn.delay = float( synData[ 11 ] )
             newSyn.weight = float( synData[ 12 ] )
             self.synapseList.append( newSyn )
+          #  print( "Loading synapse %i" % newSyn.synapseId )
             if newSyn.synType < 100:
                 self.inhSyn.append( newSyn )
             else:
