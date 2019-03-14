@@ -86,7 +86,7 @@ class pyCell():
         ''' 
         Connect to `prop` random cells for both excitatory and
         inhibitory
-        '''
+        ''' 
         if( conCount == 0 ):
             print( "Warning: Adding child cell with no connected synapses!" )
         # Start by getting the indices of the excitatory synapses

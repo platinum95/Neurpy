@@ -1,13 +1,27 @@
-import sys
 import os
+import sys
 
-def runSim( netName, outName, pipe ):
+import time
+import neurpy
+from neurpy.NeuronEnviron import NeuronEnviron
+from neurpy.Neurtwork import Neurtwork
+import neuron
+import os
+import numpy as np
+import multiprocessing
+from multiprocessing import Process, Pipe, Value
+
+
+def runSim( netName, outName, pipe, affinity ):
     import neurpy
     from neurpy.NeuronEnviron import NeuronEnviron
     from neurpy.Neurtwork import Neurtwork
     import neuron
     import os
     import numpy as np
+    import psutil
+    p = psutil.Process()
+    p.cpu_affinity( [ affinity ] )
     f = open( os.devnull, 'w' )
     sys.stdout = f
     sys.stderr = f
@@ -22,40 +36,12 @@ def runSim( netName, outName, pipe ):
     netEnv.runSimulation( outPath, pipe )
     sys.exit( 0 )
 
-
-
-import os
-
-import time
-
-import neurpy
-from neurpy.NeuronEnviron import NeuronEnviron
-from neurpy.Neurtwork import Neurtwork
-import neuron
-import os
-import numpy as np
-import multiprocessing
-from multiprocessing import Process, Pipe, Value
-
-
-# if not os.path.exists( './x86_64' ):
-#     print( "WARNING: You're probably running without compiling\
-#             the mechanisms first. This isn't recommended." )
-
-# netEnv = NeuronEnviron( "./modelBase", "./modelBase/global_mechanisms" )
-# network = netEnv.loadTopology( "./networks/testwork-00.xml" )
-# outPath = os.path.join( "./outputs/", "output.csv" )
-# neuron.h.tstop = 100
-# netEnv.runSimulation( outPath, Value( 'L', 0 ) )
-
-# sys.exit( 0 )
-    
 print("start")
 
 
 
-netDir = os.path.dirname( "./networks/" )
-outDir = os.path.dirname( "./outputs/" )
+netDir = os.path.dirname( "./2cell_networks/" )
+outDir = os.path.dirname( "./2cell_outputs/" )
 outBase = "output"
 
 if not os.path.exists( outDir ):
@@ -64,22 +50,31 @@ if not os.path.exists( outDir ):
 validFiles = [ x for x in os.listdir( netDir ) if x.endswith( ".xml" ) ]
 validFiles.sort( )
 print( "Running over %i files" % len( validFiles ) )
-numProcs = int( multiprocessing.cpu_count() / 2 )
+numAvailCpus = multiprocessing.cpu_count()
+numProcs = 4#int( numAvailCpus / 2 )
 procHandles = [ None ] * numProcs
 # Filenumber, last piped time, pipe
 procInfo = [ ]
-
+getAffinity = lambda pId : ( pId * 2 ) % ( numAvailCpus ) +\
+               ( 1 if( pId * 2 >= numAvailCpus and numAvailCpus % 2 == 0 ) else 0 )
 for i in range( numProcs ):
-    procInfo.append( [ 0, 0, Pipe( False ), Value( 'L', 0 ) ] )
+    procInfo.append( [ 0, 0, Value( 'L', 0 ), getAffinity( i ) ] )
 
 curFile = 0
 finitio = False
+
+startTime = time.time()
+throughput = 0.0
 
 while curFile < len( validFiles ) and not finitio:
     finitio = True
     for i in range( numProcs ):
         if not procHandles[ i ] or not procHandles[ i ].is_alive():
             if curFile < len( validFiles ):
+                # Get the simulation time in seconds
+                simTime = time.time() - startTime
+                # Get the throughput in sims/min
+                throughput = ( curFile / simTime ) * 60.0
                 nextFile = validFiles[ curFile ]
                 procInfo[ i ][ 0 ] = curFile           
                 nextFile = os.path.join( netDir, nextFile )
@@ -88,24 +83,24 @@ while curFile < len( validFiles ) and not finitio:
                 procHandles[ i ] = Process( target=runSim, 
                                             args=( nextFile, 
                                                    outName, 
-                                                   procInfo[ i ][ 3 ] 
+                                                   procInfo[ i ][ 2 ],
+                                                   procInfo[ i ][ 3 ],
                                                  ) 
                                            )
                 procHandles[ i ].start()
                 finitio = False
         else:
             finitio = False
-        #if procInfo[ i ][ 2 ][ 0 ].poll():
-        #    procInfo[ i ][ 1 ] = procInfo[ i ][ 2 ][ 0 ].recv()
 
     sys.stdout.write('\r')
     sys.stdout.flush()
     sys.stdout.write( "Process/file/sim time | " )
     for i in range( numProcs ):
         pFile = procInfo[ i ][ 0 ]
-        pTime = procInfo[ i ][ 3 ].value
-        sys.stdout.write( "%i/%i/%i | " % ( i, pFile, pTime ) )
-        sys.stdout.flush()
+        pTime = procInfo[ i ][ 2 ].value
+        sys.stdout.write( "%4i/%4i/%4i | " % ( i, pFile, pTime ) )
+    sys.stdout.write( "Throughput %i sims/min" % throughput )
+    sys.stdout.flush()
     time.sleep( 0.001 )
         
     

@@ -662,12 +662,12 @@ if __name__ == "__main__":
     print( "Finished, %i mtypes" % ng.numMTypes )
  #   ng.printConnectionMatrix()
 
-    fileBase = os.path.dirname( "./networks/" )
+    fileBase = os.path.dirname( "./2cell_networks/" )
     netNameBase = "testwork"
     if not os.path.exists( fileBase ):
         os.makedirs( fileBase )
     
-    sys.argv.append( "./NeurGen/4-leaf-topology.xml" )
+    sys.argv.append( "./NeurGen/2-cell-topology.xml" )
     # Lets generate 1000 random networks
     for i in range( 10000 ):
         if( len( sys.argv ) > 1 ):
