@@ -179,16 +179,16 @@ class NeurGen:
                         raise KeyError
                     
                     preCell, postCell = splitPathwayName( pStr )
-                    
+                         
                     preID = self.getSetID( preCell )
                     postID = self.getSetID( postCell )
 
                     # Make a pathway object, set the data, and store
                     pWay = Pathway( anPathway[ 1 ], phPathway, 
                                     preCell, postCell )
-                    if not re.search( 'excitatory', pWay.synapseType, 
-                                      re.IGNORECASE ):
-                        continue
+                  #  if not re.search( 'excitatory', pWay.synapseType, 
+                   #                   re.IGNORECASE ):
+                    #    continue
                     i += 1
                     self.pathways[ preID ][ postID ] = pWay
 
@@ -437,7 +437,8 @@ class NeurGen:
                 target[ 3 ] = True
         
         elif sourceChosen and not targetChosen:
-            validTargets = self.pathways[ source[ 1 ] ].items()
+            sourceCellID = self.getSetID( source[ 1 ] )
+            validTargets = self.pathways[ sourceCellID ].items()
             validTargets = [ pw for x, pw in validTargets
                              if re.match( target[ 1 ], x ) ]
             pWay = self.getPathwayFromProb( validTargets )
@@ -555,7 +556,8 @@ class NeurGen:
         outEdges = []
         outStims = []
         outProbes = []
-
+        
+        #TODO remove this cell hardcode
         for cell in interCell.values():
             if not cell[ 3 ]:
                 continue
@@ -566,6 +568,27 @@ class NeurGen:
                     "cellType" : str( self.getCellFromMType( cell[ 1 ] ) )
                 }
             )
+        outCells[ 0 ][ "cellType" ] = "L1_DAC_bNAC219_1"
+        layer = random.randint( 1, 5 )
+        lMatch = "L1.*"
+        if( layer == 1 ):
+            lMatch = "L1.*"
+        elif( layer == 2 ):
+            lMatch = "L23.*"
+        elif( layer == 3 ):
+            lMatch = "L4.*"
+        elif( layer == 4 ):
+            lMatch = "L5.*"
+        elif( layer == 5 ):
+            lMatch = "L6.*"
+    
+        validTargets = self.cellNames.values()
+        validTargets = [ x for x in validTargets
+                         if re.match( lMatch, x ) ]
+        tCell = random.choice( validTargets )
+        tCell = self.getCellFromMType( tCell )
+
+        outCells[ 1 ][ "cellType" ] = tCell
 
         for edge in edges:
             preCell = interCell[ edge[ 1 ] ]
@@ -579,8 +602,12 @@ class NeurGen:
             delay = normal( loc=pw.latencyMean, scale=pw.latencyStd )
             connCount = normal( loc=pw.meanNumSynapsePerConn,
                                 scale=pw.numSynapsePerConnectionStd )
+            # TODO remove these synapse hardcodes
+            delay = 5.0
+            connCount = 5
             connCount = max( 1, int( connCount ) )
             connWeight = random.uniform( 0.8, 5.0 )
+            connWeight = 2.0
             conType = pw.synapseType
             conCode = 0
             # Find out what kind of synapse we're dealing with
@@ -590,7 +617,7 @@ class NeurGen:
                 conCode = 0
             else:
                 print( "Unknown connection type: %s" % conType )
-            
+            conCode = 0
             # Construct the edge object
             outEdges.append( 
                 { 
@@ -662,14 +689,14 @@ if __name__ == "__main__":
     print( "Finished, %i mtypes" % ng.numMTypes )
  #   ng.printConnectionMatrix()
 
-    fileBase = os.path.dirname( "./2cell_networks/" )
-    netNameBase = "testwork"
+    fileBase = os.path.dirname( "./2cell_networks_l1force/" )
+    netNameBase = "network"
     if not os.path.exists( fileBase ):
         os.makedirs( fileBase )
     
     sys.argv.append( "./NeurGen/2-cell-topology.xml" )
     # Lets generate 1000 random networks
-    for i in range( 10000 ):
+    for i in range( 10000, 30000 ):
         if( len( sys.argv ) > 1 ):
             topologyPath = sys.argv[ 1 ]
             network = ng.createNetwork( topologyPath )

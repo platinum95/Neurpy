@@ -1,0 +1,20 @@
+<?xml version="1.0" ?>
+<Neurtwork>
+   <graph defaultedgetype="directed" mode="static">
+      <cells>
+         <cell cellType="L1.*" id="0" label="Head"/>
+         <cell cellType=".*" id="1" label="Tail"/>
+      </cells>
+      <edges>
+         <edge id="0" source="0" target="1" />
+      </edges>
+      <stimuli>
+         <stim id="0" target="0" />
+      </stimuli>
+
+      <probes>
+         <probe id="0" target="0" label="HeadProbe" />
+         <probe id="1" target="1" label="TailProbe" />
+      </probes>
+   </graph>
+</Neurtwork>

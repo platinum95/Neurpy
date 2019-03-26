@@ -1,7 +1,7 @@
 
 import os 
-netDir = os.path.dirname( "./2cell_networks_l1force/" )
-outDir = os.path.dirname( "./2cell_outputs_allSyn/" )
+netDir = os.path.dirname( "./2cell_networks/" )
+outDir = os.path.dirname( "./2cell_rpt_outputs/" )
 
 def runSim( netName, outName, pipe, affinity ):
     import neurpy
@@ -31,31 +31,21 @@ def runSim( netName, outName, pipe, affinity ):
         # Lets move the destination cell down by a certain amount
         srcYSize = srcCell.getSize()[ 1 ]
 
-        destCell.translate( [ 0, srcYSize /2.0 , 0 ] )
+        destCell.translate( [ 0, srcYSize / 2.0 , 0 ] )
         srcPos = srcCell.position
         destPos = destCell.position
         distance = math.sqrt( pow( srcPos[ 0 ] - destPos[ 0 ], 2.0 ) +
                             pow( srcPos[ 1 ] - destPos[ 1 ], 2.0 ) +
                             pow( srcPos[ 2 ] - destPos[ 2 ], 2.0 ) )
         edge = network.edges[ '0' ][ '1' ]
-
         # Only 1 stimulus
-     #   ncVec = neuron.h.Vector()
         stimulus = network.stimuli[ 0 ]
-      #  stimulus[ 5 ].netcons[ 0 ].record( ncVec )
-        stimDelay = 1.0#random.uniform( 0.1, 3.0 )
-        stimWeight = 1.5#random.uniform( 1.0, 2.0 )
-        stimInterval = 50#random.uniform( 50, 150 )
+        stimDelay = 3.0
+        stimWeight = 1.0
+        stimInterval = 120
         stimulus[ 5 ].setProperties( weight=stimWeight, delay=stimDelay,
                                 interval=stimInterval )
         stimulus[ 5 ].symbolProbability = 1.0
-        stimulus[ 5 ].netstim.number = 1000
-
-        #tgCell = network.cellDict[ "1" ]
-      #  nGui = netEnv.generateGUI( tgCell.neurCell.soma[ 0 ], tgCell.neurCell )
-      #  nGui.createMainWindow()
-      #  while( 1 ):
-      #      pass
 
         # Build the JSON metadata file
         metadata = {
@@ -80,11 +70,8 @@ def runSim( netName, outName, pipe, affinity ):
         with open( metaOutPath, 'w' ) as metaFile:
             metaFile.write( metadataStr )
         netEnv.runSimulation( simOutPath, pipe )
-
-      #  recVec = ncVec.as_numpy()
-     #   recNp = np.array( recVec )
         print( "Simulation complete" )
-    sys.exit( 0 )
+        sys.exit( 0 )
 
 import time
 
@@ -95,23 +82,15 @@ import json
 import math
 from io import StringIO
 import sys
-import re
+
 
 print("start")
-
-
-#runSim( "./SimCode/net.xml", "test", None, 1 )
-#runSim( "./2cell_networks_l1force/network-00.xml", "test", None, 1 )
 
 outBase = "output"
 
 if not os.path.exists( outDir ):
     os.makedirs( outDir )
 
-validFiles = [ ( x, int( re.search( "[0-9]+", x )[ 0 ] ) )
-                for x in os.listdir( netDir ) if x.endswith( ".xml" ) ]
-validFiles.sort( key=lambda val:val[ 1 ] )
-print( "Running over %i files" % len( validFiles ) )
 numAvailCpus = multiprocessing.cpu_count()
 numProcs = int( numAvailCpus/2 )
 procHandles = [ None ] * numProcs
@@ -122,32 +101,33 @@ getAffinity = lambda pId : ( pId * 2 ) % ( numAvailCpus ) +\
 for i in range( numProcs ):
     procInfo.append( [ 0, 0, Value( 'L', 0 ), getAffinity( i ) ] )
 
-startOffset = 3420
+numRepeats = 100
 
-curFile = startOffset
+curFile = 0
 finitio = False
+
+networkFile = "./2cell_networks/testwork-00.xml"
 
 startTime = time.time()
 throughput = 0.0
 
-while curFile < len( validFiles ) and not finitio:
+while curFile < numRepeats and not finitio:
     finitio = True
     for i in range( numProcs ):
         if not procHandles[ i ] or not procHandles[ i ].is_alive():
-            if curFile < len( validFiles ):
+            if curFile < numRepeats:
                 if( procHandles[ i ] and procHandles[ i ].exitcode ):
                     print( "\nERROR: Thread %i exited with code %i."
                             % ( i, procHandles[ i ].exitcode ) )
-                    #sys.exit( 1 )
-                    #break
+                    sys.exit( 1 )
+                    break
                 # Get the simulation time in seconds
                 simTime = time.time() - startTime
                 # Get the throughput in sims/min
-                throughput = ( ( curFile - startOffset ) / simTime ) * 60.0
-                nextFile = validFiles[ curFile ][ 0 ]
+                throughput = ( curFile / simTime ) * 60.0
                 procInfo[ i ][ 0 ] = curFile           
-                nextFile = os.path.join( netDir, nextFile )
-                outName = "%s-%02i" % ( outBase, curFile )
+                nextFile = networkFile
+                outName = "output-00-%02i" % ( curFile )
                 curFile += 1
                 procHandles[ i ] = Process( target=runSim, 
                                             args=( nextFile, 
@@ -176,26 +156,4 @@ while curFile < len( validFiles ) and not finitio:
     
 
 print( "All done!" )
-# for i, file in enumerate( os.listdir( netDir ) ):
-#     if not file.endswith( ".xml" ):
-#         continue
-#     file = os.path.join( netDir, file )
-#     print( "Forking" )
-#     try:
-#         pid = os.fork()
-#     except OSError:
-#         print( "No fork" )
-#     if pid == -1:
-#         print( "No fork" )
-#     elif pid == 0:
-#         print( "Child running file %s" % file )
-#         outName = "%s-%02i.csv" % ( outBase, i )
-#         runSim( file, outName )
-#         exit()
-        
-#     else:
-#         print( "Waiting" )
-#         os.waitpid( pid, 0 )
-#         print( "Child done %i" % i )
-
 print( "Finishing..." )
