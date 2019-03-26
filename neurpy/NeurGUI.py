@@ -2,7 +2,7 @@ import neuron
 from neuron import gui
 
 class NeurGUI( object ):
-    def __init__( self, recordSection, enableSynapses=False ):
+    def __init__( self, recordSection, stimCell, enableSynapses=False ):
         self.xres = 1200
         self.yres = 800
         self.xstart = 50
@@ -19,6 +19,7 @@ class NeurGUI( object ):
         self.synapsesEnabled = enableSynapses
         self.recSec = recordSection
         self.pwmcnt = neuron.h.PWManager[0].count
+        self.stimCell = stimCell
 
 
     def createMainWindow( self ):
@@ -255,7 +256,7 @@ class RingPlot( object ):
     def update( self ):
         # Set clipping region (in ms)
         self.clip_size = 3000.0
-        t = neuron.h._ref_t
+        t = neuron.h.t
         # Time at right side of clipping region
         right_t = t
 
@@ -266,8 +267,8 @@ class RingPlot( object ):
              left_t = t - self.clip_size
         else:
              left_t = 0.0
-    
-        dt = neuron.h.dt
+        right_t = float( right_t )
+        dt = float( neuron.h.dt )
         # Calculate clipped vectors
         self.clipped_voltage.copy( self.voltage, 0, left_t/dt, right_t/dt-1 )
         self.clipped_time.copy( self.time, 0, left_t/dt, right_t/dt-1 )

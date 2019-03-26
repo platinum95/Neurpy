@@ -1,7 +1,6 @@
 import neuron
 import os
 from neurpy.pyCell import pyCell
-from neurpy.NeurGUI import NeurGUI
 from neurpy.Neurtwork import Neurtwork
 import subprocess
 from subprocess import PIPE
@@ -15,9 +14,10 @@ class NeuronEnviron( object ):
     def __init__(  self, modelRoot, mechanismRoot ):
         self.modelRoot = modelRoot
         self.loadedCells = {}
-        subprocess.Popen( [ 'nrnivmodl', mechanismRoot ], stdin=PIPE, 
-                                                          stdout=PIPE, 
-                                                          stderr=PIPE )
+        if not os.path.isdir( "./x86_64" ):
+            subprocess.Popen( [ 'nrnivmodl', mechanismRoot ], stdin=PIPE, 
+                                                            stdout=PIPE, 
+                                                            stderr=PIPE )
         neuron.h.load_file("stdrun.hoc")
         neuron.h.load_file("import3d.hoc")
         neuron.h.tstop = 1000
@@ -176,20 +176,24 @@ class NeuronEnviron( object ):
         #     ax3.plot( time, recNp )
      #   pylab.show()
         recs.insert( 0, time )
-        
+        symbs.insert( 0, symbTimeVec )        
         if( outputFilepath ):
-            data = np.transpose( np.vstack( tuple( recs ) ) )
-            np.savetxt( outputFilepath, data, delimiter=',', 
+
+            probeData = np.transpose( np.vstack( tuple( recs ) ) )
+            probeFilepath = outputFilepath + "_probes.csv"
+            np.savetxt( probeFilepath, probeData, delimiter=',', 
                         header=header, comments='' )
 
-            d2 = np.transpose( np.vstack( tuple( symbs ) ) )
-            np.savetxt( outputFilepath + "_d2", d2, delimiter=',',
+            stimFilepath = outputFilepath + "_stim.csv"
+            stimData = np.transpose( np.vstack( tuple( symbs ) ) )
+            np.savetxt( stimFilepath, stimData, delimiter=',',
                         header=header2, comments='' )
                          
         return recs
 
-    def generateGUI( self, recSec, synapses=False ):
-        return NeurGUI( recSec, synapses )
+    def generateGUI( self, recSec, stimCell, synapses=False ):
+        from neurpy.NeurGUI import NeurGUI
+        return NeurGUI( recSec, stimCell, synapses )
 
 
     def __cacheCellName( self, templatePath ):

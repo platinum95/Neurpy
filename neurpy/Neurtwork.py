@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from xml.dom import minidom
 import neuron
 import random
+import collections
 
 class Neurtwork( object ):
     ''' 
@@ -25,6 +26,7 @@ class Neurtwork( object ):
         self.nxGraph = None
         self.recordings = []
         self.stimuli = []
+        self.edges = collections.defaultdict( dict )
         if( filepath ):
             self.loadTopology( filepath, env )
         
@@ -78,6 +80,8 @@ class Neurtwork( object ):
             self.cellDict[ source ].addChild( self.cellDict[ target ], 
                                               synType, conCount, weight, 
                                               delay, threshold )
+            edge = Edge( delay, weight, synType, conCount )
+            self.edges[ source ][ target ] = edge
             i += 1
         
         for stim in stimuli:
@@ -158,3 +162,9 @@ class Neurtwork( object ):
         for stim in self.stimuli:
             stim[ 5 ].updateStimulus()
 
+class Edge:
+    def __init__( self, delay, weight, synType, connCount ):
+        self.delay = delay
+        self.weight = weight
+        self.synType = synType
+        self.connCount = connCount

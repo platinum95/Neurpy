@@ -71,7 +71,7 @@ class pyCell():
         '''
 
         for sec in self.neurCell.all:
-            print( "%s -> %i" % ( sec.name(), sec.L ) )
+           # print( "%s -> %i" % ( sec.name(), sec.L ) )
             for i in range( 0, int( neuron.h.n3d( sec=sec ) ) ):
                 xNew = neuron.h.x3d( i, sec=sec ) + translation[ 0 ]
                 yNew = neuron.h.y3d( i, sec=sec ) + translation[ 1 ]
@@ -92,7 +92,7 @@ class pyCell():
         # Start by getting the indices of the excitatory synapses
         synapse = []#list( targetCell.neurCell.synapses.pre_mtypes_excinh )
         if synType == 1:
-            synapses = targetCell.synapses.inhSyn
+            synapses = targetCell.synapses.excSyn#inhSyn
         else:
             synapses = targetCell.synapses.excSyn
 
