@@ -74,7 +74,8 @@ class NeurGen:
         self.cellIDs = {}
         self.cellNames = {}
         self.numMTypes = 0
-        self.pathways = collections.defaultdict(dict)
+        self.pathways = collections.defaultdict( dict )
+        self.pathwaysInv = collections.defaultdict( dict )
         self.eTypes = {}
         self.__getETypes( modelBase )
         return
@@ -159,6 +160,10 @@ class NeurGen:
             return pSplit[ 0 ], pSplit[ 1 ]
 
         i = 0
+        j = 0
+        availCUTs = []
+        ignoredCUTs = []
+        preCells = []
         # Load in the physiology data
         with open( physiologyPath ) as phFile:
             phData = json.load( phFile )
@@ -186,13 +191,30 @@ class NeurGen:
                     # Make a pathway object, set the data, and store
                     pWay = Pathway( anPathway[ 1 ], phPathway, 
                                     preCell, postCell )
-                  #  if not re.search( 'excitatory', pWay.synapseType, 
-                   #                   re.IGNORECASE ):
-                    #    continue
+                    
+                    # TODO - remove this.
+                    # For now, consider only excitatory pathways
+                    if not re.search( 'Excitatory', pWay.synapseType ):
+                        j += 1
+                        ignoredCUTs.append( postCell )
+                        preCells.append( preCell )
+                        continue
+                    
+                    # Check for duplicate entries
+                    if ( self.pathways.get( preID ) and self.pathways[ preID ].get( postID ) ):
+                        print( f"Duplicate pathway found for {preCell} -> {postCell}" )
+                        continue
+
+                    availCUTs.append( postCell )
+                    preCells.append( preCell )
                     i += 1
                     self.pathways[ preID ][ postID ] = pWay
+                    self.pathwaysInv[ postID ][ preID ] = pWay
 
-        print( "Loaded %i pathways" % i )
+        unavailCUTs = [ cell for cell in ignoredCUTs if cell not in availCUTs ]
+        unavailCUTs.extend( [ cell for cell in preCells if cell not in availCUTs ] )
+        print( f"Loaded {i} pathways, ignored {j}" )
+        print( f"{len( unavailCUTs )} post-synaptic cells unavailable" )
 
     def getCellFromMType( self, mTypeStr ):
         '''
@@ -543,7 +565,7 @@ class NeurGen:
         probes = []
         for probe in templProbes:
             target = probe.getAttribute( "target" )
-            probeTag = probe.getAttribute( "tag" )
+            probeTag = probe.getAttribute( "label" )
             probeID = probe.getAttribute( "id" )
             targetCell = interCell[ target ][ 1 ]
             if not probeTag:
@@ -556,8 +578,12 @@ class NeurGen:
         outEdges = []
         outStims = []
         outProbes = []
+
+        # Resolve the network based on the template.
+        # TODO - in lieu of a proper resolver, we'll select our second cell first,
+        # and then select an appropriate head-cell
         
-        #TODO remove this cell hardcode
+
         for cell in interCell.values():
             if not cell[ 3 ]:
                 continue
@@ -568,7 +594,8 @@ class NeurGen:
                     "cellType" : str( self.getCellFromMType( cell[ 1 ] ) )
                 }
             )
-        outCells[ 0 ][ "cellType" ] = "L1_DAC_bNAC219_1"
+
+        # TODO remove hardcoded selection
         layer = random.randint( 1, 5 )
         lMatch = "L1.*"
         if( layer == 1 ):
@@ -585,10 +612,23 @@ class NeurGen:
         validTargets = self.cellNames.values()
         validTargets = [ x for x in validTargets
                          if re.match( lMatch, x ) ]
-        tCell = random.choice( validTargets )
-        tCell = self.getCellFromMType( tCell )
-
+        tCellMType = random.choice( validTargets )
+        tCell = self.getCellFromMType( tCellMType )
+        interCell[ '1' ] = [ '1', tCellMType, 'Tail', True ]
         outCells[ 1 ][ "cellType" ] = tCell
+        
+        validHeadCells = list( self.pathwaysInv[ self.getSetID( tCellMType ) ].values() )
+        if ( len( validHeadCells ) == 0 ):
+            print( f"Failed to find suitable head-cell for tail-cell {tCell}" )
+            return
+        
+        selectedPathway = random.choice( validHeadCells )
+        assert( selectedPathway.postCell == tCellMType )
+
+        headCell = selectedPathway.preCell
+        interCell[ '0' ] = headCell
+        interCell[ '0' ] = [ '0', headCell, "Head", True ]
+        outCells[ 0 ][ "cellType" ] = self.getCellFromMType( selectedPathway.preCell )
 
         for edge in edges:
             preCell = interCell[ edge[ 1 ] ]
@@ -600,24 +640,27 @@ class NeurGen:
 
             # Generate the edge data from distribution sampling
             delay = normal( loc=pw.latencyMean, scale=pw.latencyStd )
-            connCount = normal( loc=pw.meanNumSynapsePerConn,
-                                scale=pw.numSynapsePerConnectionStd )
+            connCount = int( normal( loc=pw.meanNumSynapsePerConn,
+                                scale=pw.numSynapsePerConnectionStd ) )
             # TODO remove these synapse hardcodes
-            delay = 5.0
-            connCount = 5
-            connCount = max( 1, int( connCount ) )
+            #delay = 5.0
+            #connCount = 5
+            if ( connCount < 5 ):
+                print ( f"Warning: Pathway {preCell[ 1 ]}->{postCell[1]} has low connection count: {connCount}" )
+            #connCount = max( 1, int( connCount ) )
             connWeight = random.uniform( 0.8, 5.0 )
             connWeight = 2.0
             conType = pw.synapseType
-            conCode = 0
+
             # Find out what kind of synapse we're dealing with
             if( re.search( 'inhibitory', conType, re.IGNORECASE ) ):
                 conCode = 1
             elif( re.search( 'excitatory', conType, re.IGNORECASE ) ):
                 conCode = 0
             else:
-                print( "Unknown connection type: %s" % conType )
-            conCode = 0
+                print( "Error: Unknown connection type: %s" % conType )
+                return
+
             # Construct the edge object
             outEdges.append( 
                 { 

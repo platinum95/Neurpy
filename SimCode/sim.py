@@ -11,10 +11,10 @@ def runSim( netName, outName, pipe, affinity ):
     import numpy as np
     import psutil
     import random
-    
+
     p = psutil.Process()
     p.cpu_affinity( [ affinity ] )
-    with open( "./thread-%i" % affinity, 'w' ) as f:
+    with open( f"./thread-{affinity}", 'w' ) as f:
         sys.stdout = f
         sys.stderr = f
         simOutputName = outName
@@ -24,6 +24,7 @@ def runSim( netName, outName, pipe, affinity ):
                     the mechanisms first. This isn't recommended." )
 
         netEnv = NeuronEnviron( "./modelBase", "./modelBase/global_mechanisms" )
+        print( f"Running topology {netName}" )
         network = netEnv.loadTopology( netName )
 
         srcCell = network.cellDict[ '0' ]
@@ -113,7 +114,7 @@ validFiles = [ ( x, int( re.search( "[0-9]+", x )[ 0 ] ) )
 validFiles.sort( key=lambda val:val[ 1 ] )
 print( "Running over %i files" % len( validFiles ) )
 numAvailCpus = multiprocessing.cpu_count()
-numProcs = int( numAvailCpus/2 )
+numProcs = int( numAvailCpus )
 procHandles = [ None ] * numProcs
 # Filenumber, last piped time, pipe
 procInfo = [ ]
@@ -149,6 +150,7 @@ while curFile < len( validFiles ) and not finitio:
                 nextFile = os.path.join( netDir, nextFile )
                 outName = "%s-%02i" % ( outBase, curFile )
                 curFile += 1
+                #runSim( nextFile, outName, procInfo[ i ][ 2 ], procInfo[ i ][ 3 ] )
                 procHandles[ i ] = Process( target=runSim, 
                                             args=( nextFile, 
                                                    outName, 
