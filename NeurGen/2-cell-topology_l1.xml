@@ -2,7 +2,7 @@
 <Neurtwork>
    <graph defaultedgetype="directed" mode="static">
       <cells>
-         <cell cellType="L1.*" id="0" label="Head"/>
+         <cell cellType=".*" id="0" label="Head"/>
          <cell cellType=".*" id="1" label="Tail"/>
       </cells>
       <edges>

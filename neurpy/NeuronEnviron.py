@@ -87,20 +87,24 @@ class NeuronEnviron( object ):
         timeRecording.record( neuron.h._ref_t, 0.1 )
         neuron.h.cvode_active( 0 )
 
-    #    import matplotlib
-    #    matplotlib.rcParams['path.simplify'] = False
+        plotResult = False
 
-#        import pylab
+        if plotResult:
+            import matplotlib
+            matplotlib.use('TkAgg')
+            matplotlib.rcParams['path.simplify'] = False
 
- #       fig = pylab.figure()
-  #      ax = fig.add_subplot(111)
-      #  lineA, = ax.plot(x, y, 'r-')
-      #  lineB, = ax.plot(x, y, 'r-')
-      #  lineC, = ax.plot(x, y, 'r-')
-        
-   #     pylab.xlabel( 'time (ms)' )
-    #    pylab.ylabel( 'Vm (mV)' )
-     #   pylab.gcf().canvas.set_window_title( 'Test' )
+            import pylab
+
+            fig = pylab.figure()
+            ax = fig.add_subplot(111)
+            #lineA, = ax.plot(x, y, 'r-')
+            #lineB, = ax.plot(x, y, 'r-')
+            #lineC, = ax.plot(x, y, 'r-')
+                
+            pylab.xlabel( 'time (ms)' )
+            pylab.ylabel( 'Vm (mV)' )
+            pylab.gcf().canvas.set_window_title( 'Test' )
 
 
         def printStat( src ): # current state is the destination. arg gives the source
@@ -149,7 +153,8 @@ class NeuronEnviron( object ):
                 recNp = np.array( recVec )
                 recs.append( recNp )
                 header += ', %s' % rec[ 0 ]
-     #           ax.plot( time, recNp, graphCols[ i ], label=rec[ 0 ] )
+                if plotResult:
+                    ax.plot( time, recNp, graphCols[ i ], label=rec[ 0 ] )
                 i += 1
 
         symbs = []
@@ -157,24 +162,26 @@ class NeuronEnviron( object ):
             header2 += ', %s' % symb[ 0 ]
             symbs.append( np.array( symb[ 1 ] ) )
         
- #       fig.legend()
-        
-  #     fig2 = pylab.figure()
-   #     ax2 = fig2.add_subplot(111)
-  #      for symb in symbHist:
-  #          ax2.step( symbTimeVec, symb[ 1 ] )
+        if plotResult:
+            fig.legend()
+            
+            fig2 = pylab.figure()
+            ax2 = fig2.add_subplot(111)
+            for symb in symbHist:
+                ax2.step( symbTimeVec, symb[ 1 ] )
 
-        # for symb in symbHist:
-        #     fig3 = pylab.figure()
-        #     ax3 = fig3.add_subplot( 111 )
-        #     vs = [ x for x in self.networks[ 0 ].recordings 
-        #             if x[ 2 ] == symb[ 0 ] ][ 0 ]
-        #     recVec = vs[ 1 ].as_numpy()
-        #     recNp = np.array( recVec )
+                for symb in symbHist:
+                    fig3 = pylab.figure()
+                    ax3 = fig3.add_subplot( 111 )
+                    vs = [ x for x in self.networks[ 0 ].recordings 
+                            if x[ 2 ] == symb[ 0 ] ][ 0 ]
+                    recVec = vs[ 1 ].as_numpy()
+                    recNp = np.array( recVec )
 
-        #     ax3.step( symbTimeVec, symb[ 1 ] )
-        #     ax3.plot( time, recNp )
-     #   pylab.show()
+                    ax3.step( symbTimeVec, symb[ 1 ] )
+                    ax3.plot( time, recNp )
+            pylab.show()
+
         recs.insert( 0, time )
         symbs.insert( 0, symbTimeVec )        
         if( outputFilepath ):
