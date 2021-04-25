@@ -216,6 +216,23 @@ class NeurGen:
         print( f"Loaded {i} pathways, ignored {j}" )
         print( f"{len( unavailCUTs )} post-synaptic cells unavailable" )
 
+        # TODO - remove this
+        # Temporary analysis of pre-cell suitability
+        items = self.pathways.keys()
+        numAvailConns = []
+        for preId in items:
+            item = self.pathways[ preId ]
+            numAvailConns.append( ( preId, len( item ) ) )
+
+        numAvailConns = [ ( preId, len( conns ) ) for ( preId, conns ) in self.pathways.items() ]
+        numAvailConns.sort( key=lambda x: x[ 1 ], reverse=True )
+        bestPathways = self.pathways[ numAvailConns[ 0 ][ 0 ] ]
+        topChoicePostCells = [ self.getSetID( pw.postCell ) for pw in bestPathways.values() ]
+        availPostCells = list( self.pathwaysInv.keys() )
+        topChoiceMissingPostCells = [ cellId for cellId in availPostCells if not cellId in topChoicePostCells ]
+        pass # 30, 1, 9
+
+
     def getCellFromMType( self, mTypeStr ):
         '''
         Pathway deals with MType only, no e-types included.
@@ -582,7 +599,6 @@ class NeurGen:
         # Resolve the network based on the template.
         # TODO - in lieu of a proper resolver, we'll select our second cell first,
         # and then select an appropriate head-cell
-        
 
         for cell in interCell.values():
             if not cell[ 3 ]:
@@ -617,12 +633,25 @@ class NeurGen:
         interCell[ '1' ] = [ '1', tCellMType, 'Tail', True ]
         outCells[ 1 ][ "cellType" ] = tCell
         
+        validInvPathways = self.pathwaysInv[ self.getSetID( tCellMType ) ]
         validHeadCells = list( self.pathwaysInv[ self.getSetID( tCellMType ) ].values() )
+        validHeadCellsIds = list( self.pathwaysInv[ self.getSetID( tCellMType ) ].keys() )
         if ( len( validHeadCells ) == 0 ):
             print( f"Failed to find suitable head-cell for tail-cell {tCell}" )
             return
         
-        selectedPathway = random.choice( validHeadCells )
+        # TODO - remove best-path selection
+        if 30 in validHeadCellsIds:
+            selectedPathway = validInvPathways[ 30 ]
+        elif 1 in validHeadCellsIds:
+            selectedPathway = validInvPathways[ 1 ]
+        elif 9 in validHeadCellsIds:
+            selectedPathway = validInvPathways[ 9 ]
+        else:
+            print( "Failed to find best pathway for cell" )
+            assert( False )
+
+#        selectedPathway = random.choice( validHeadCells )
         assert( selectedPathway.postCell == tCellMType )
 
         headCell = selectedPathway.preCell

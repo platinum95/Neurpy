@@ -65,7 +65,7 @@ class NeuronEnviron( object ):
     def addNetwork( self, network ):
         self.networks.append( network )
 
-    def runSimulation( self, outputFilepath, pipe ):
+    def runSimulation( self, outputFilepath, onUpdateCb ):
 
         statEvent = neuron.h.StateTransitionEvent( 1 )
         symbEvent = neuron.h.StateTransitionEvent( 1 )
@@ -113,7 +113,10 @@ class NeuronEnviron( object ):
 
             tnext[0] += 1.0 # update for next transition
             #pipe.value = int( neuron.h.t )
-            pipe.send( int( neuron.h.t ) )
+            if not onUpdateCb( int( neuron.h.t ) ):
+                neuron.h.stoprun = 1
+                neuron.h.tstop = 0
+                neuron.h.stop()
         
         def updateSymbols( src ):
             if( src != 0 ):

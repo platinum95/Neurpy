@@ -3,6 +3,7 @@
 import argparse
 import curses
 from curses import wrapper
+from enum import Enum
 from io import StringIO
 import json
 import math
@@ -10,27 +11,31 @@ import multiprocessing
 from multiprocessing import Process, Pipe, Value
 import numpy as np
 import os
+import pickle
 import re
 import sys
 import time
 
 parser = argparse.ArgumentParser( description="Run Neuron simulation" )
 parser.add_argument( "-p", "--parallel", type=int, dest="numProcs", action="store", default=0, help="Number of simulations to run in parallel, 0 for automatic selection." )
-
+parser.add_argument( "-l", "--logdir", type=str, dest="logDir", action="store", default="./logs", help="Path to location to store process logs" )
 args = parser.parse_args()
+
 availCores = int( multiprocessing.cpu_count() )
 numProcs = availCores if args.numProcs == 0 else args.numProcs
 multiProc = numProcs > 1
 
+logDir = args.logDir
+
 netDir = os.path.dirname( "./2cell_networks_l1force/" )
 outDir = os.path.dirname( "./2cell_outputs_allSyn/" )
-logDir = "./logs"
 
 modelBaseDir = "./modelBase"
 globalMechanismsDir = "./modelBase/global_mechanisms"
 
 if not os.path.exists( './x86_64' ):
     print( f"ERROR: Missing mechanisms. Run `nrnivmodl {globalMechanismsDir}` before starting simulations." )
+    sys.exit( 0 )
 
 outBase = "output"
 
@@ -44,15 +49,12 @@ validFiles = [ ( x, int( re.search( "[0-9]+", x )[ 0 ] ) )
                 for x in os.listdir( netDir ) if x.endswith( ".xml" ) ]
 validFiles.sort( key=lambda val:val[ 1 ] )
 
-procHandles = [ None ] * numProcs
 # Filenumber, last piped time, pipe
-procInfo = [ ]
 affinities = []
 getAffinity = lambda pId : ( pId * 2 ) % ( availCores ) +\
                ( 1 if( pId * 2 >= availCores and availCores % 2 == 0 ) else 0 )
 for i in range( numProcs ):
     affinities.append( getAffinity( i ) )
-    procInfo.append( [ 0, 0, Value( 'L', 0 ), getAffinity( i ) ] )
 
 
 startOffset = 3420
@@ -63,9 +65,53 @@ finitio = False
 startTime = time.time()
 throughput = 0.0
 
+class SimIpcMessageBase:
+    def __init__( self ):
+        pass
+
+    def Send( self, pipe ):
+        pipe.send( self )
+
+class SimStatusMessage( SimIpcMessageBase ):
+    def __init__( self ):
+        super().__init__()
+
+class SimProgress( SimStatusMessage ):
+    progress = 0
+    def __init__( self, progress ):
+        super().__init__()
+        self.progress = progress
+
+class SimComplete( SimStatusMessage ):
+    def __init__( self ):
+        super().__init__()
+
+class SimFailure( SimStatusMessage ):
+    message = None
+    def __init__( self, failureMessage ):
+        super().__init__()
+        self.message = failureMessage
+
+class SimJob( SimIpcMessageBase ):
+    networkId = 0
+    networkPath = None
+
+    def __init__( self, networkId, networkPath ):
+        super().__init__()
+        self.networkId = networkId
+        self.networkPath = networkPath
+
+class SimTerminate( SimIpcMessageBase ):
+    def __init__( self ):
+        super().__init__()
+
+class SimState( Enum ):
+    IDLE = 0
+    SIMULATING = 1
+    FAILURE = 2
+    INIT = 3
+
 class Sim:
-    running = False
-    complete = False
     simFilePath = None
     simOutputpath = None
     processId = 0
@@ -75,87 +121,78 @@ class Sim:
     handle = None
     pipeTx = None
     pipeRx = None
+    jobQueue = []
 
-    def __init__( self, processId, simFile, affinity, fileNum ):
+    state = SimState.INIT
+
+    def __init__( self, processId, affinity ):
         self.processId = processId
-        self.simFile = simFile
         self.affinity = affinity
-
-        baseName = "%s-%02i" % ( outBase, fileNum )
-        self.simOutputBasePath = os.path.join( outDir, baseName )
-        self.metadataOutputPath =  os.path.join( outDir, baseName + "_meta.json" )
         
         self.pipeRx, self.pipeTx = multiprocessing.Pipe()
-
-    def runSim( self ):
         self.handle = Process( target=self.simProcess )
         self.handle.start()
-        
-        self.pipeTx.close()
+
         if not self.pipeRx.poll( 1 ):
+            self.state = SimState.FAILURE
             return
         
-        recvd = self.pipeRx.recv() 
-        if recvd != "heartbeat":
+        while self.pipeRx.poll():
+            try:
+                recvd = self.pipeRx.recv()
+                if isinstance( recvd, SimProgress ):
+                    self.state = SimState.IDLE
+                    return
+            except EOFError:
+                # Pipe closed unexpectedly
+                self.state = SimState.FAILURE
+
+    def queueSim( self, networkId, networkFilePath ):
+        SimJob( networkId, networkFilePath ).Send( self.pipeTx )
+
+    def update( self ):
+        if self.state == SimState.FAILURE:
             return
-        
-        self.running = True
+        if not self.handle.is_alive():
+            self.state = SimState.FAILURE
+            return
 
-    def getStatus( self ):
-        if ( not self.running ) or ( self.complete ) or ( not self.pipeRx.poll( 0.1 ) ):
-            return self.progress
-
+        if not self.pipeRx.poll( 0.1 ):
+            return
         try:
             while self.pipeRx.poll():
-                self.progress = int( self.pipeRx.recv() )
+                message = self.pipeRx.recv()
+                if isinstance( message, SimProgress ):
+                    self.progress = message.progress
+                    self.state = SimState.SIMULATING
+                elif isinstance( message, SimFailure ):
+                    self.state = SimState.FAILURE
+                elif isinstance( message, SimComplete ):
+                    self.state = SimState.IDLE
         except EOFError:
             # Pipe closed, process ended
-            self.running = False
-            self.complete = True
             self.handle.join( 1 )
             if self.handle.exitcode == None:
                 self.handle.kill()
-            self.handle.close()
-
-
-        return self.progress
 
     def getStatusString( self, availSpace ):
-        progress = self.getStatus()
+        if self.state == SimState.IDLE:
+            return "Idle"
+        elif self.state == SimState.FAILURE:
+            return "Error"
+        elif self.state == SimState.INIT:
+            return "Initialising"
+        else:
+            numBars = math.floor( availSpace * self.progress )
+            return ( "|" * numBars ) + ( " " * ( availSpace - numBars ) )
 
-        if ( self.running == False ):
-            return "Not Running"
-        if ( self.complete == True ):
-            return "Complete"
-        
-        progress = progress / 1000.0
-        numBars = math.floor( availSpace * progress )
-        return ( "|" * numBars ) + ( " " * ( availSpace - numBars ) )
+    def runJob( self, job ):
+        print( f"Loading topology {job.networkPath}" )
+        network = self.netEnv.loadTopology( job.networkPath )
 
-    def simProcess( self ):
-        
-        self.pipeRx.close()
-        self.pipeTx.send( 'heartbeat' )
-
-        logFile = open( os.path.join( logDir, f"proc-{self.processId}.log" ), 'w' )
-        sys.stdout = logFile
-        sys.stderr = logFile
-
-        # Tie process to core
-        import psutil
-        p = psutil.Process()
-        p.cpu_affinity( [ self.affinity ] )
-
-        import neurpy
-        from neurpy.NeuronEnviron import NeuronEnviron
-        from neurpy.Neurtwork import Neurtwork
-        import neuron
-        import numpy as np
-        import random
-
-        netEnv = NeuronEnviron( modelBaseDir, globalMechanismsDir )
-        print( f"Loading topology {self.simFile}" )
-        network = netEnv.loadTopology( self.simFile )
+        baseName = "%s-%02i" % ( outBase, job.networkId )
+        simOutputBasePath = os.path.join( outDir, baseName )
+        metadataOutputPath =  os.path.join( outDir, baseName + "_meta.json" )
 
         srcCell = network.cellDict[ '0' ]
         destCell = network.cellDict[ '1' ]
@@ -172,22 +209,14 @@ class Sim:
         edge = network.edges[ '0' ][ '1' ]
 
         # Only 1 stimulus
-        #   ncVec = neuron.h.Vector()
         stimulus = network.stimuli[ 0 ]
-        #  stimulus[ 5 ].netcons[ 0 ].record( ncVec )
-        stimDelay = 1.0#random.uniform( 0.1, 3.0 )
-        stimWeight = 1.5#random.uniform( 1.0, 2.0 )
-        stimInterval = 50#random.uniform( 50, 150 )
+        stimDelay = 1.0
+        stimWeight = 1.5
+        stimInterval = 50
         stimulus[ 5 ].setProperties( weight=stimWeight, delay=stimDelay,
                                 interval=stimInterval )
         stimulus[ 5 ].symbolProbability = 1.0
         stimulus[ 5 ].netstim.number = 1000
-
-        #tgCell = network.cellDict[ "1" ]
-        #  nGui = netEnv.generateGUI( tgCell.neurCell.soma[ 0 ], tgCell.neurCell )
-        #  nGui.createMainWindow()
-        #  while( 1 ):
-        #      pass
 
         # Build the JSON metadata file
         metadata = {
@@ -207,17 +236,70 @@ class Sim:
 
         metadataStr = json.dumps( metadata, indent=4 )
 
-        with open( self.metadataOutputPath, 'w' ) as metaFile:
+        with open( metadataOutputPath, 'w' ) as metaFile:
             metaFile.write( metadataStr )
 
-        netEnv.runSimulation( self.simOutputBasePath, self.pipeTx )
+        SimProgress( 0 ).Send( self.pipeTx )
 
-        print( "Simulation complete, processing exiting" )
-        self.pipeTx.close()
+        def SimCB( time ):
+            SimProgress( time / 1000.0 ).Send( self.pipeTx )
+            if ( self.pipeRx.poll() ):
+                message = self.pipeRx.recv()
+                if isinstance( message, SimTerminate ):
+                    return False
+                elif isinstance( message, SimJob ):
+                    self.jobQueue.append( message )
+                
+            return True
 
-        logFile.close()
+        self.netEnv.runSimulation( simOutputBasePath, SimCB )
 
-        sys.exit( 0 )
+        SimComplete().Send( self.pipeTx )
+        print( f"Simulation {job.networkId} complete" )
+
+    def simProcess( self ):
+        # Send initial heartbeat
+        SimProgress( 0 ).Send( self.pipeTx )
+        shouldExit = False
+
+        with open( os.path.join( logDir, f"proc-{self.processId}.log" ), 'w' ) as logFile:
+            sys.stdout = logFile
+            sys.stderr = logFile
+
+            try:
+                # Tie process to core
+                import psutil
+                p = psutil.Process()
+                p.cpu_affinity( [ self.affinity ] )
+
+                import neurpy
+                from neurpy.NeuronEnviron import NeuronEnviron
+                from neurpy.Neurtwork import Neurtwork
+                import neuron
+                import numpy as np
+                import random
+
+                self.netEnv = NeuronEnviron( modelBaseDir, globalMechanismsDir )
+
+                while not shouldExit:
+                    message = self.pipeRx.recv()
+                    if isinstance( message, SimTerminate ):
+                        shouldExit = True
+                        break
+                    elif isinstance( message, SimJob ):
+                        self.jobQueue.append( message )
+                    
+                    while len( self.jobQueue ) > 0:
+                        self.runJob( self.jobQueue.pop( 0 ) )
+                    
+            except Exception as e:
+                msg = f"Sim Process -- Exception Caught: {str( e )}"
+                print( msg )
+                SimFailure( msg ).Send( self.pipeTx )
+            finally:
+                self.pipeTx.close()
+                self.pipeRx.close()
+                sys.exit( 0 )
         
 
 
@@ -238,7 +320,8 @@ class SimWin:
         self.mainScreen.nodelay( True )
         curses.curs_set( 0 )
         self.numProcs = availCores if args.numProcs == 0 else args.numProcs
-        self.sims = [ None ] * self.numProcs
+        self.sims = [ Sim( procId, getAffinity( procId ) ) for procId in range( self.numProcs ) ]
+
         self.multiProc = self.numProcs > 1
         self.layoutScreen()
 
@@ -266,25 +349,19 @@ class SimWin:
             procX = procId % 4
             procY = ( procId // 4 ) + 1
             procWinXPos = 2 + ( procLen * procX )
-            
-            if ( sim == None ) or ( sim.running == False ):
-                if filesAvailable:
-                    allComplete = False
 
-                    nextFile = os.path.join( netDir, validFiles[ self.fileId ][ 0 ] )
-                    sim = Sim( procId, nextFile, affinities[ procId ], self.fileId )
-                    self.sims[ procId ] = sim
-                    self.fileId += 1
-                    sim.runSim()
-                    if not sim.running:
-                        # Failed to start sim
-                        self.shouldExit = True
-            elif ( sim != None ) and sim.running == True:
+            if ( sim.state == SimState.IDLE ) and filesAvailable:
+                allComplete = False
+
+                nextFile = os.path.join( netDir, validFiles[ self.fileId ][ 0 ] )
+                sim.queueSim( self.fileId, nextFile )
+                self.fileId += 1
+
+            elif sim.state == SimState.SIMULATING:
                 allComplete = False
             
-            progressStr = " " * progressSpace
-            if sim != None:
-                progressStr = sim.getStatusString( progressSpace )
+            sim.update()
+            progressStr = sim.getStatusString( progressSpace )
             
             statusStr = fixedWidthStr.format( procId ) + "[" + progressStr + "]"
             self.statusWindow.addstr( procY, procWinXPos, statusStr )
