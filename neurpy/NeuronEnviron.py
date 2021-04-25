@@ -110,13 +110,10 @@ class NeuronEnviron( object ):
         def printStat( src ): # current state is the destination. arg gives the source
             if( src != 0 ):
                 return
-            # Write over the same line...
-         #   sys.stdout.write('\r')
-         #   sys.stdout.flush()
-         #   sys.stdout.write( "Time: %ims" % int( neuron.h.t ) )
-         #   sys.stdout.flush()
+
             tnext[0] += 1.0 # update for next transition
-            pipe.value = int( neuron.h.t )
+            #pipe.value = int( neuron.h.t )
+            pipe.send( int( neuron.h.t ) )
         
         def updateSymbols( src ):
             if( src != 0 ):

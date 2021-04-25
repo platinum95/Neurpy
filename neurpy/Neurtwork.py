@@ -1,7 +1,6 @@
 
 from neurpy.CellStim import CellStim
 import networkx as nx
-import matplotlib.pyplot as plt
 from xml.dom import minidom
 import neuron
 import random
@@ -154,9 +153,10 @@ class Neurtwork( object ):
             newRecording.record( targetRec._ref_v, 0.1 )
             self.recordings.append( ( "dend %i" % i, newRecording ) )
 '''
-        #self.nxGraph = nx.MultiDiGraph( nx.read_gexf( filePath ) )
-        #plt.subplot( 122 )
-        #nx.draw( self.nxGraph )
+        # import matplotlib.pyplot as plt
+        # self.nxGraph = nx.MultiDiGraph( nx.read_gexf( filePath ) )
+        # plt.subplot( 122 )
+        # nx.draw( self.nxGraph )
 
     def updateStimuli( self ):
         for stim in self.stimuli:
