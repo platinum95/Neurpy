@@ -16,6 +16,8 @@ import time
 
 parser = argparse.ArgumentParser( description="Run Neuron simulation" )
 parser.add_argument( "-p", "--parallel", type=int, dest="numProcs", action="store", default=0, help="Number of simulations to run in parallel, 0 for automatic selection." )
+parser.add_argument( "-s", "--start", type=int, dest="startAt", action="store", default=0, help="File ID to start at" )
+parser.add_argument( "-l", "--logdir", type=str, dest="logDir", action="store", default="./logs", help="Directory to store the process logs" )
 
 args = parser.parse_args()
 availCores = int( multiprocessing.cpu_count() )
@@ -24,7 +26,7 @@ multiProc = numProcs > 1
 
 netDir = os.path.dirname( "./2cell_networks_l1force/" )
 outDir = os.path.dirname( "./2cell_outputs_allSyn/" )
-logDir = "./logs"
+logDir = args.logDir
 
 modelBaseDir = "./modelBase"
 globalMechanismsDir = "./modelBase/global_mechanisms"
@@ -53,15 +55,6 @@ getAffinity = lambda pId : ( pId * 2 ) % ( availCores ) +\
 for i in range( numProcs ):
     affinities.append( getAffinity( i ) )
     procInfo.append( [ 0, 0, Value( 'L', 0 ), getAffinity( i ) ] )
-
-
-startOffset = 3420
-
-curFile = startOffset
-finitio = False
-
-startTime = time.time()
-throughput = 0.0
 
 class Sim:
     running = False
@@ -234,6 +227,7 @@ class SimWin:
     shouldExit = True
 
     def __init__( self, stdscr ):
+        self.fileId = args.startAt
         self.mainScreen = stdscr
         self.mainScreen.nodelay( True )
         curses.curs_set( 0 )
