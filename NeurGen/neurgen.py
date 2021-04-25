@@ -645,8 +645,8 @@ class NeurGen:
             # TODO remove these synapse hardcodes
             #delay = 5.0
             #connCount = 5
-            if ( connCount < 5 ):
-                print ( f"Warning: Pathway {preCell[ 1 ]}->{postCell[1]} has low connection count: {connCount}" )
+            # if ( connCount < 5 ):
+                # print ( f"Warning: Pathway {preCell[ 1 ]}->{postCell[1]} has low connection count: {connCount}" )
             #connCount = max( 1, int( connCount ) )
             connWeight = random.uniform( 0.8, 5.0 )
             connWeight = 2.0
@@ -739,7 +739,7 @@ if __name__ == "__main__":
     
     sys.argv.append( "./NeurGen/2-cell-topology.xml" )
     # Lets generate 1000 random networks
-    for i in range( 10000, 30000 ):
+    for i in range( 0, 30000 ):
         if( len( sys.argv ) > 1 ):
             topologyPath = sys.argv[ 1 ]
             network = ng.createNetwork( topologyPath )

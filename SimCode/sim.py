@@ -15,7 +15,7 @@ import sys
 import time
 
 parser = argparse.ArgumentParser( description="Run Neuron simulation" )
-parser.add_argument( "-p", "--parallel", type=int, dest="numProcs", action="store", default=5, help="Number of simulations to run in parallel, 0 for automatic selection." )
+parser.add_argument( "-p", "--parallel", type=int, dest="numProcs", action="store", default=0, help="Number of simulations to run in parallel, 0 for automatic selection." )
 
 args = parser.parse_args()
 availCores = int( multiprocessing.cpu_count() )
@@ -24,6 +24,7 @@ multiProc = numProcs > 1
 
 netDir = os.path.dirname( "./2cell_networks_l1force/" )
 outDir = os.path.dirname( "./2cell_outputs_allSyn/" )
+logDir = "./logs"
 
 modelBaseDir = "./modelBase"
 globalMechanismsDir = "./modelBase/global_mechanisms"
@@ -35,6 +36,9 @@ outBase = "output"
 
 if not os.path.exists( outDir ):
     os.makedirs( outDir )
+
+if not os.path.exists( logDir ):
+    os.makedirs( logDir )
 
 validFiles = [ ( x, int( re.search( "[0-9]+", x )[ 0 ] ) )
                 for x in os.listdir( netDir ) if x.endswith( ".xml" ) ]
@@ -133,7 +137,7 @@ class Sim:
         self.pipeRx.close()
         self.pipeTx.send( 'heartbeat' )
 
-        logFile = open( f"./proc-{self.processId}.log", 'w' )
+        logFile = open( os.path.join( logDir, f"proc-{self.processId}.log" ), 'w' )
         sys.stdout = logFile
         sys.stderr = logFile
 
@@ -232,6 +236,7 @@ class SimWin:
     def __init__( self, stdscr ):
         self.mainScreen = stdscr
         self.mainScreen.nodelay( True )
+        curses.curs_set( 0 )
         self.numProcs = availCores if args.numProcs == 0 else args.numProcs
         self.sims = [ None ] * self.numProcs
         self.multiProc = self.numProcs > 1
@@ -314,6 +319,8 @@ class SimWin:
                 curses.endwin()
             elif x == curses.KEY_RESIZE:
                 self.layoutScreen()
+
+            time.sleep( 0.1 )
 
         # TODO - wait for Sims to exit
 
