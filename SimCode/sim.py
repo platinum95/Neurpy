@@ -15,6 +15,8 @@ import sys
 import time
 
 parser = argparse.ArgumentParser( description="Run Neuron simulation" )
+parser.add_argument( "-i", "--input_dir", type=str, dest="inputDir", action="store", required=True, help="Path to directory of network topologies" )
+parser.add_argument( "-o", "--output_dir", type=str, dest="outputDir", action="store", required=True, help="Path to directory for simulation outputs" )
 parser.add_argument( "-p", "--parallel", type=int, dest="numProcs", action="store", default=0, help="Number of simulations to run in parallel, 0 for automatic selection." )
 parser.add_argument( "-s", "--start", type=int, dest="startAt", action="store", default=0, help="File ID to start at" )
 parser.add_argument( "-l", "--logdir", type=str, dest="logDir", action="store", default="./logs", help="Directory to store the process logs" )
@@ -24,9 +26,11 @@ availCores = int( multiprocessing.cpu_count() )
 numProcs = availCores if args.numProcs == 0 else args.numProcs
 multiProc = numProcs > 1
 
-netDir = os.path.dirname( "./2cell_networks_l1force/" )
-outDir = os.path.dirname( "./2cell_outputs_allSyn/" )
+netDir = args.inputDir
+outDir = args.outputDir
 logDir = args.logDir
+
+
 
 modelBaseDir = "./modelBase"
 globalMechanismsDir = "./modelBase/global_mechanisms"
@@ -38,6 +42,15 @@ outBase = "output"
 
 if not os.path.exists( outDir ):
     os.makedirs( outDir )
+elif not os.path.isdir( outDir ):
+    print( f"ERROR: Output path '{outDir}' is not a directory" )
+    sys.exit( 1 )
+elif len( os.listdir( outDir ) ) != 0:
+    print( f"ERROR: Output path '{outDir}' is not empty" )
+    sys.exit( 1 )
+
+if ( not os.path.exists( netDir ) ) or ( not os.path.isdir( netDir ) ):
+    print( f"ERROR: Input path '{outDir}' is invalid" )
 
 if not os.path.exists( logDir ):
     os.makedirs( logDir )
