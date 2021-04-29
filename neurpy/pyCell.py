@@ -105,7 +105,7 @@ class pyCell():
         # Randomly select synapses by shuffling and selecting the first
         # N indices based on the connection proportion
         shuffle( synapses )
-        conCount = len( synapses ) - 1
+        #conCount = len( synapses ) - 1
         synapses = synapses[ 0 : conCount ]
         
         for syn in synapses:
