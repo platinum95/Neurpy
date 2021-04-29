@@ -649,13 +649,18 @@ class NeurGen:
             return
 
         # TODO - remove best-path selection
+        selectedPathway = None
         if 30 in validHeadCellsIds:
             selectedPathway = validInvPathways[ 30 ]
-        elif 1 in validHeadCellsIds:
-            selectedPathway = validInvPathways[ 1 ]
-        elif 9 in validHeadCellsIds:
-            selectedPathway = validInvPathways[ 9 ]
-        else:
+        if 1 in validHeadCellsIds:
+            newPathway = validInvPathways[ 1 ]
+            if ( not selectedPathway ) or ( selectedPathway.meanNumSynapsePerConn < newPathway.meanNumSynapsePerConn ):
+                selectedPathway = newPathway
+        if 9 in validHeadCellsIds:
+            newPathway = validInvPathways[ 9 ]
+            if ( not selectedPathway ) or ( selectedPathway.meanNumSynapsePerConn < newPathway.meanNumSynapsePerConn ):
+                selectedPathway = newPathway
+        if not selectedPathway:
             print( "Failed to find best pathway for cell" )
             assert( False )
         
