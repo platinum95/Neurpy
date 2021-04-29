@@ -683,6 +683,10 @@ class NeurGen:
             delay = normal( loc=pw.latencyMean, scale=pw.latencyStd )
             connCount = int( normal( loc=pw.meanNumSynapsePerConn,
                                 scale=pw.numSynapsePerConnectionStd ) )
+            connMeanDiff = connCount - pw.meanNumSynapsePerConn
+            if ( connCount - pw.meanNumSynapsePerConn ) < 0:
+                connCount = int( pw.meanNumSynapsePerConn - connMeanDiff )
+
             connCount = max( 1, connCount )
             # TODO remove these synapse hardcodes
             #delay = 5.0
@@ -774,7 +778,7 @@ if __name__ == "__main__":
     print( "Finished, %i mtypes" % ng.numMTypes )
  #   ng.printConnectionMatrix()
 
-    fileBase = os.path.dirname( "./2cell_networks_l1force/" )
+    fileBase = os.path.dirname( "./2cell_networks_head_constrained/" )
     netNameBase = "network"
     if not os.path.exists( fileBase ):
         os.makedirs( fileBase )
