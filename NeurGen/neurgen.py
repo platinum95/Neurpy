@@ -639,7 +639,6 @@ class NeurGen:
         tCell = self.getCellFromMType( tCellMType )
         interCell[ '1' ] = [ '1', tCellMType, 'Tail', True ]
         outCells[ 1 ][ "cellType" ] = tCell
-        
 
         validInvPathways = self.pathwaysInv[ self.getSetID( tCellMType ) ]
         validHeadCells = list( self.pathwaysInv[ self.getSetID( tCellMType ) ].values() )
@@ -649,20 +648,11 @@ class NeurGen:
             return
 
         # TODO - remove best-path selection
-        selectedPathway = None
-        if 30 in validHeadCellsIds:
-            selectedPathway = validInvPathways[ 30 ]
-        if 1 in validHeadCellsIds:
-            newPathway = validInvPathways[ 1 ]
-            if ( not selectedPathway ) or ( selectedPathway.meanNumSynapsePerConn < newPathway.meanNumSynapsePerConn ):
-                selectedPathway = newPathway
-        if 9 in validHeadCellsIds:
-            newPathway = validInvPathways[ 9 ]
-            if ( not selectedPathway ) or ( selectedPathway.meanNumSynapsePerConn < newPathway.meanNumSynapsePerConn ):
-                selectedPathway = newPathway
-        if not selectedPathway:
-            print( "Failed to find best pathway for cell" )
-            assert( False )
+        validInvPathwaysList = list( validInvPathways.values() )
+        selectedPathway = validInvPathwaysList[ 0 ]
+        for pw in validInvPathwaysList[ 1 : ]:
+            if selectedPathway.meanNumSynapsePerConn < pw.meanNumSynapsePerConn:
+                selectedPathway = pw
         
         validHeadCells = list( self.pathwaysInv[ self.getSetID( tCellMType ) ].values() )
         if ( len( validHeadCells ) == 0 ):
