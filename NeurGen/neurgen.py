@@ -674,21 +674,22 @@ class NeurGen:
             postCellId = self.getSetID( postCell[ 1 ] )
             pw = self.pathways[ preCellId ][ postCellId ]
 
-            # Generate the edge data from distribution sampling
+            # Generate the edge data from distribution sampling.
+            # Use positively-biased sampling
+
             delay = normal( loc=pw.latencyMean, scale=pw.latencyStd )
+            delayMeanDiff = delay - pw.latencyMean
+            if delayMeanDiff < 0:
+                delay = int( pw.latencyMean - delayMeanDiff )
+
             connCount = int( normal( loc=pw.meanNumSynapsePerConn,
                                 scale=pw.numSynapsePerConnectionStd ) )
             connMeanDiff = connCount - pw.meanNumSynapsePerConn
-            if ( connCount - pw.meanNumSynapsePerConn ) < 0:
+            if connMeanDiff < 0:
                 connCount = int( pw.meanNumSynapsePerConn - connMeanDiff )
 
             connCount = max( 1, connCount )
             # TODO remove these synapse hardcodes
-            #delay = 5.0
-            #connCount = 5
-            # if ( connCount < 5 ):
-                # print ( f"Warning: Pathway {preCell[ 1 ]}->{postCell[1]} has low connection count: {connCount}" )
-            #connCount = max( 1, int( connCount ) )
             connWeight = random.uniform( 0.8, 5.0 )
             connWeight = 2.0
             conType = pw.synapseType
