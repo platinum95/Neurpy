@@ -90,26 +90,71 @@ class pyCell():
         if( conCount == 0 ):
             print( "Warning: Adding child cell with no connected synapses!" )
         # Start by getting the indices of the excitatory synapses
-        synapse = []#list( targetCell.neurCell.synapses.pre_mtypes_excinh )
+        synapse = []
         if synType == 1:
-            synapses = targetCell.synapses.excSyn#inhSyn
+            synapses = targetCell.synapses.inhSyn
         else:
             synapses = targetCell.synapses.excSyn
-
 
         if conCount > len( synapses ):
             print( "Warning! More connections requested than synapses exist! "
                     "Requested %i, but cell has %i" %( conCount, len( synapses ) ) )
             conCount = len( synapses ) - 1
 
+        synapseFacSum = {}
+        synapseDepSum = {}
+        synapseUseSum = {}
+        for synapse in synapses:
+            facSum = synapseFacSum.get( synapse.preCellId, 0.0 )
+            depSum = synapseDepSum.get( synapse.preCellId, 0.0 )
+            useSum = synapseUseSum.get( synapse.preCellId, 0.0 )
+
+            synapseFacSum[ synapse.preCellId ] = facSum + synapse.fac
+            synapseDepSum[ synapse.preCellId ] = depSum + synapse.dep
+            synapseUseSum[ synapse.preCellId ] = useSum + synapse.use
+
+        # Group by precell ID, and sort group by increasing `fac`
+        class synapseSortKeyWrapper( object ):
+
+            def synapseSortPredicate( self, synapseB ):
+                if ( self.obj.sectionlistId == 1 and self.obj.sectionlistId != 1 ):
+                    return -1
+                elif ( self.obj.sectionlistId != 1 and self.obj.sectionlistId == 1 ):
+                    return 1
+
+                return self.obj.fac - synapseB.fac
+                #if self.obj.preCellId == synapseB.preCellId:
+                #    #return self.obj.dep - synapseB.dep
+
+                #return synapseDepSum[ self.obj.preCellId ] - synapseDepSum[ synapseB.preCellId ]
+                #return synapseUseSum[ synapseB.preCellId ] - synapseUseSum[ self.obj.preCellId ]
+
+            def __init__(self, obj, *args):
+                self.obj = obj
+            def __lt__(self, other):
+                return self.synapseSortPredicate( other.obj ) < 0
+            def __gt__(self, other):
+                return self.synapseSortPredicate( other.obj ) > 0
+            def __eq__(self, other):
+                return self.synapseSortPredicate( other.obj ) == 0
+            def __le__(self, other):
+                return self.synapseSortPredicate( other.obj ) <= 0
+            def __ge__(self, other):
+                return self.synapseSortPredicate( other.obj ) >= 0
+            def __ne__(self, other):
+                return self.synapseSortPredicate( other.obj ) != 0
+
+        synapses.sort( key=synapseSortKeyWrapper )
+
         # Randomly select synapses by shuffling and selecting the first
         # N indices based on the connection proportion
-        shuffle( synapses )
+        #shuffle( synapses )
         #conCount = len( synapses ) - 1
-        synapses = synapses[ 0 : conCount ]
+        numBaselConn = len( [ syn for syn in synapses if syn.sectionlistId == 1 ] )
+        synapses = synapses[ 0 : conCount * 4 ] #numBaselConn // 2 ]
         
         for syn in synapses:
-            syn.initialise( )
+            syn.initialise()
 
             # Create a new NetCon object to connect our cell to the target synapse
             ourSoma = self.neurCell.soma[ 0 ]
