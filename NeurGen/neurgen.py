@@ -680,7 +680,7 @@ class NeurGen:
             delay = normal( loc=pw.latencyMean, scale=pw.latencyStd )
             delayMeanDiff = delay - pw.latencyMean
             if delayMeanDiff < 0:
-                delay = int( pw.latencyMean - delayMeanDiff )
+                delay = pw.latencyMean - delayMeanDiff
 
             connCount = int( normal( loc=pw.meanNumSynapsePerConn,
                                 scale=pw.numSynapsePerConnectionStd ) )
