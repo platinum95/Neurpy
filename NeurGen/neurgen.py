@@ -570,7 +570,7 @@ class NeurGen:
             # Load in the source cell.
             sourceCell = interCell[ edgeSource ]
             targetCell = interCell[ edgeTarget ]
-            self.loadCellsFromEdge( sourceCell[ 0 ], targetCell[ 0 ], interCell )
+            #self.loadCellsFromEdge( sourceCell[ 0 ], targetCell[ 0 ], interCell )
 
         stims = []
         for stim in templStimuli:
@@ -604,12 +604,69 @@ class NeurGen:
 
         # Resolve the network based on the template.
         # TODO - in lieu of a proper resolver, we'll select our second cell first,
-        # and then select an appropriate head-cell
+        # and then select an appropriate head-cell    
+        def cellListIntersection( listA, listB ):
+            return [ x for x in listA if x in listB ]
+
+        def getValidHeadIdsForTail( tail ):
+            tailId = self.getSetID( tail )
+            return list( self.pathwaysInv[ tailId ].keys() )
+        
+        def rollOneLMCell():
+            validTargets = list( self.cellNames.values() )
+            return random.choice( validTargets )
+            #return self.getCellFromMType( tCellMType )
         
 
+        def roll4Cells():
+            while True:
+                leafCells = [ rollOneLMCell() for i in range( 4 ) ]
+                validHeadCellIdsList = [ getValidHeadIdsForTail( leaf ) for leaf in leafCells ]
+
+                validHeadCellIds = cellListIntersection( validHeadCellIdsList[ 0 ], validHeadCellIdsList[ 1 ] )
+                validHeadCellIds = cellListIntersection( validHeadCellIds, validHeadCellIdsList[ 2 ] )
+                validHeadCellIds = cellListIntersection( validHeadCellIds, validHeadCellIdsList[ 3 ] )
+                if ( len( validHeadCellIds ) == 0 ):
+                    print( "No valid common node found, rerolling" )
+                    continue
+                break
+            
+            
+            validPathways = [ [ self.pathways[ headCellId ][ self.getSetID( leafCell ) ] for leafCell in leafCells ] for headCellId in validHeadCellIds ]
+            selectedHeadCellId = validHeadCellIds[ 0 ]
+            cMaxSyn = 0
+            for idx, pwList in enumerate( validPathways ):
+                numSynapses = sum( [ x.meanNumSynapsePerConn for x in pwList ] )
+
+                if cMaxSyn < numSynapses:
+                    cMaxSyn = numSynapses
+                    selectedHeadCellId = validHeadCellIds[ idx ]
+
+            return leafCells, self.cellNames[ selectedHeadCellId ]
+
+        def get4LeafStarCells():
+            leaves, node = roll4Cells()
+            completeLeaves = [ self.getCellFromMType( leaf ) for leaf in leaves ]
+            completeNode = self.getCellFromMType( node )
+
+            return completeLeaves, completeNode
+
+        leaves, node = roll4Cells()
+        
+        interCell[ '0' ][ 1 ] = node
+        interCell[ '1' ][ 1 ] = leaves[ 0 ]
+        interCell[ '2' ][ 1 ] = leaves[ 1 ]
+        interCell[ '3' ][ 1 ] = leaves[ 2 ]
+        interCell[ '4' ][ 1 ] = leaves[ 3 ]
+
+        # outCells[ 0 ][ "cellType" ] = self.getCellFromMType( node )
+        # outCells[ 1 ][ "cellType" ] = self.getCellFromMType( leaves[ 0 ] )
+        # outCells[ 2 ][ "cellType" ] = self.getCellFromMType( leaves[ 1 ] )
+        # outCells[ 3 ][ "cellType" ] = self.getCellFromMType( leaves[ 2 ] )
+        # outCells[ 4 ][ "cellType" ] = self.getCellFromMType( leaves[ 3 ] )
+
         for cell in interCell.values():
-            if not cell[ 3 ]:
-                continue
+            assert( len( cell[ 1 ] ) > 4 )
             outCells.append( 
                 { 
                     "id" : str( cell[ 0 ] ),
@@ -617,54 +674,6 @@ class NeurGen:
                     "cellType" : str( self.getCellFromMType( cell[ 1 ] ) )
                 }
             )
-
-        # TODO remove hardcoded selection
-        layer = random.randint( 1, 5 )
-        lMatch = "L1.*"
-        if( layer == 1 ):
-            lMatch = "L1.*"
-        elif( layer == 2 ):
-            lMatch = "L23.*"
-        elif( layer == 3 ):
-            lMatch = "L4.*"
-        elif( layer == 4 ):
-            lMatch = "L5.*"
-        elif( layer == 5 ):
-            lMatch = "L6.*"
-    
-        validTargets = self.cellNames.values()
-        validTargets = [ x for x in validTargets
-                         if re.match( lMatch, x ) ]
-        tCellMType = random.choice( validTargets )
-        tCell = self.getCellFromMType( tCellMType )
-        interCell[ '1' ] = [ '1', tCellMType, 'Tail', True ]
-        outCells[ 1 ][ "cellType" ] = tCell
-
-        validInvPathways = self.pathwaysInv[ self.getSetID( tCellMType ) ]
-        validHeadCells = list( self.pathwaysInv[ self.getSetID( tCellMType ) ].values() )
-        validHeadCellsIds = list( self.pathwaysInv[ self.getSetID( tCellMType ) ].keys() )
-        if ( len( validHeadCells ) == 0 ):
-            print( f"Failed to find suitable head-cell for tail-cell {tCell}" )
-            return
-
-        # TODO - remove best-path selection
-        validInvPathwaysList = list( validInvPathways.values() )
-        selectedPathway = validInvPathwaysList[ 0 ]
-        for pw in validInvPathwaysList[ 1 : ]:
-            if selectedPathway.meanNumSynapsePerConn < pw.meanNumSynapsePerConn:
-                selectedPathway = pw
-        
-        validHeadCells = list( self.pathwaysInv[ self.getSetID( tCellMType ) ].values() )
-        if ( len( validHeadCells ) == 0 ):
-            print( f"Failed to find suitable head-cell for tail-cell {tCell}" )
-            return
-        
-        assert( selectedPathway.postCell == tCellMType )
-
-        headCell = selectedPathway.preCell
-        interCell[ '0' ] = headCell
-        interCell[ '0' ] = [ '0', headCell, "Head", True ]
-        outCells[ 0 ][ "cellType" ] = self.getCellFromMType( selectedPathway.preCell )
 
         for edge in edges:
             preCell = interCell[ edge[ 1 ] ]
@@ -774,12 +783,12 @@ if __name__ == "__main__":
     print( "Finished, %i mtypes" % ng.numMTypes )
  #   ng.printConnectionMatrix()
 
-    fileBase = os.path.dirname( "./2cell_networks_head_constrained/" )
+    fileBase = os.path.dirname( "./4leaf_networks_freesel_topsyn/" )
     netNameBase = "network"
     if not os.path.exists( fileBase ):
         os.makedirs( fileBase )
     
-    sys.argv.append( "./NeurGen/2-cell-topology.xml" )
+    sys.argv.append( "./NeurGen/4-leaf-topology.xml" )
     # Lets generate 1000 random networks
     for i in range( 0, 30000 ):
         if( len( sys.argv ) > 1 ):

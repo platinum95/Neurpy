@@ -196,19 +196,26 @@ class Sim:
         #      pass
 
         # Build the JSON metadata file
+        # metadata = {
+        #     "preSynType" : network.cellDict[ '0' ].cellName,
+        #     "postSynType" : network.cellDict[ '1' ].cellName,
+        #     "connCount" : network.edges[ '0' ][ '1' ].connCount,
+        #     "edgeDelay" : network.edges[ '0' ][ '1' ].delay,
+        #     "edgeWeight" : network.edges[ '0' ][ '1' ].weight,
+        #     "edgeSynType" : network.edges[ '0' ][ '1' ].synType,
+        #     "distance" : distance,
+        #     "stimulus" : {
+        #         "interval" : stimulus[ 5 ].interval,
+        #         "weight" : stimulus[ 5 ].weight,
+        #         "delay" : stimulus[ 5 ].delay,
+        #     },
+        # }
+
         metadata = {
-            "preSynType" : network.cellDict[ '0' ].cellName,
-            "postSynType" : network.cellDict[ '1' ].cellName,
-            "connCount" : network.edges[ '0' ][ '1' ].connCount,
-            "edgeDelay" : network.edges[ '0' ][ '1' ].delay,
-            "edgeWeight" : network.edges[ '0' ][ '1' ].weight,
-            "edgeSynType" : network.edges[ '0' ][ '1' ].synType,
-            "distance" : distance,
-            "stimulus" : {
-                "interval" : stimulus[ 5 ].interval,
-                "weight" : stimulus[ 5 ].weight,
-                "delay" : stimulus[ 5 ].delay,
-            },
+            "leaf1Type" : network.cellDict[ '1' ].cellName,
+            "leaf2Type" : network.cellDict[ '2' ].cellName,
+            "leaf3Type" : network.cellDict[ '3' ].cellName,
+            "leaf4Type" : network.cellDict[ '4' ].cellName
         }
 
         metadataStr = json.dumps( metadata, indent=4 )
@@ -283,6 +290,7 @@ class SimWin:
                     self.sims[ procId ] = sim
                     self.fileId += 1
                     sim.runSim()
+                    #sim.simProcess()
                     if not sim.running:
                         # Failed to start sim
                         self.shouldExit = True

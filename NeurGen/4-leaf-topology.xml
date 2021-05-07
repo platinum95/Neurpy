@@ -2,27 +2,27 @@
 <Neurtwork>
    <graph defaultedgetype="directed" mode="static">
       <cells>
-         <cell cellType="L1" id="0" label="Node"/>
-         <cell cellType=".*" id="1" label="Head"/>
-         <cell cellType=".*" id="2" label="Head"/>
-         <cell cellType=".*" id="3" label="Head"/>
-         <cell cellType=".*" id="4" label="Head"/>
+         <cell cellType=".*" id="0" label="Node"/>
+         <cell cellType=".*" id="1" label="Leaf1"/>
+         <cell cellType=".*" id="2" label="Leaf2"/>
+         <cell cellType=".*" id="3" label="Leaf3"/>
+         <cell cellType=".*" id="4" label="Leaf4"/>
       </cells>
       <edges>
-         <edge id="0" source="1" target="0" />
-         <edge id="1" source="2" target="0" />
-         <edge id="2" source="3" target="0" />
-         <edge id="3" source="4" target="0" />
+         <edge id="0" source="0" target="1" />
+         <edge id="1" source="0" target="2" />
+         <edge id="2" source="0" target="3" />
+         <edge id="3" source="0" target="4" />
       </edges>
       <stimuli>
-         <stim id="0" target="1" />
-         <stim id="1" target="2" />
-         <stim id="2" target="3" />
-         <stim id="3" target="4" />
+         <stim id="0" target="0" />
       </stimuli>
-
       <probes>
-         <probe id="0" target="0" label="NodeProbe" />
+         <probe id="0" target="0" label="HeadProbe" />
+         <probe id="1" target="1" label="Leaf1Probe" />
+         <probe id="2" target="2" label="Leaf2Probe" />
+         <probe id="3" target="3" label="Leaf3Probe" />
+         <probe id="4" target="4" label="Leaf4Probe" />
       </probes>
    </graph>
 </Neurtwork>
