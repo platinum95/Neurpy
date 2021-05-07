@@ -522,7 +522,7 @@ class NeurGen:
                 if selectedPathway.meanNumSynapsePerConn < pw.meanNumSynapsePerConn:
                     selectedPathway = pw
 
-            headCellId = self.getSetID( pw.preCell )
+            headCellId = self.getSetID( selectedPathway.preCell )
             if headCellId in self.commonNodes:
                 self.commonNodes[ headCellId ].append( cellId )
             else:
