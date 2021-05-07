@@ -511,6 +511,27 @@ class NeurGen:
         netCellList[ sourceId ] = source
         netCellList[ targetId ] = target
 
+    def loadCommonNodes( self ):
+        self.commonNodes = {}
+        self.topSynHeadCells = {}
+
+        for cellId in list( self.cellIDs.values() ):
+            validInvPathwaysList = list( self.pathwaysInv[ cellId ].values() )
+            selectedPathway = validInvPathwaysList[ 0 ]
+            for pw in validInvPathwaysList[ 1 : ]:
+                if selectedPathway.meanNumSynapsePerConn < pw.meanNumSynapsePerConn:
+                    selectedPathway = pw
+
+            headCellId = self.getSetID( pw.preCell )
+            if headCellId in self.commonNodes:
+                self.commonNodes[ headCellId ].append( cellId )
+            else:
+                self.commonNodes[ headCellId ] = [ cellId ]
+
+            self.topSynHeadCells[ cellId ] = headCellId
+        
+        print( f"Loaded {len( self.commonNodes.keys() )} unique headcells" )
+
     def createNetwork( self, topologyPath ):
         '''
         Create a network of cells given distribution
@@ -605,59 +626,17 @@ class NeurGen:
         # Resolve the network based on the template.
         # TODO - in lieu of a proper resolver, we'll select our second cell first,
         # and then select an appropriate head-cell    
-        def cellListIntersection( listA, listB ):
-            return [ x for x in listA if x in listB ]
 
-        def getValidHeadIdsForTail( tail ):
-            tailId = self.getSetID( tail )
-            return list( self.pathwaysInv[ tailId ].keys() )
+
+        nodeCellId = random.choice( list( self.commonNodes.keys() ) )
+        validLeaves = self.commonNodes[ nodeCellId ]
+        leaves = [ random.choice( validLeaves ) for x in range( 4 ) ]
         
-        def rollOneLMCell():
-            validTargets = list( self.cellNames.values() )
-            return random.choice( validTargets )
-            #return self.getCellFromMType( tCellMType )
-        
-
-        def roll4Cells():
-            while True:
-                leafCells = [ rollOneLMCell() for i in range( 4 ) ]
-                validHeadCellIdsList = [ getValidHeadIdsForTail( leaf ) for leaf in leafCells ]
-
-                validHeadCellIds = cellListIntersection( validHeadCellIdsList[ 0 ], validHeadCellIdsList[ 1 ] )
-                validHeadCellIds = cellListIntersection( validHeadCellIds, validHeadCellIdsList[ 2 ] )
-                validHeadCellIds = cellListIntersection( validHeadCellIds, validHeadCellIdsList[ 3 ] )
-                if ( len( validHeadCellIds ) == 0 ):
-                    print( "No valid common node found, rerolling" )
-                    continue
-                break
-            
-            
-            validPathways = [ [ self.pathways[ headCellId ][ self.getSetID( leafCell ) ] for leafCell in leafCells ] for headCellId in validHeadCellIds ]
-            selectedHeadCellId = validHeadCellIds[ 0 ]
-            cMaxSyn = 0
-            for idx, pwList in enumerate( validPathways ):
-                numSynapses = sum( [ x.meanNumSynapsePerConn for x in pwList ] )
-
-                if cMaxSyn < numSynapses:
-                    cMaxSyn = numSynapses
-                    selectedHeadCellId = validHeadCellIds[ idx ]
-
-            return leafCells, self.cellNames[ selectedHeadCellId ]
-
-        def get4LeafStarCells():
-            leaves, node = roll4Cells()
-            completeLeaves = [ self.getCellFromMType( leaf ) for leaf in leaves ]
-            completeNode = self.getCellFromMType( node )
-
-            return completeLeaves, completeNode
-
-        leaves, node = roll4Cells()
-        
-        interCell[ '0' ][ 1 ] = node
-        interCell[ '1' ][ 1 ] = leaves[ 0 ]
-        interCell[ '2' ][ 1 ] = leaves[ 1 ]
-        interCell[ '3' ][ 1 ] = leaves[ 2 ]
-        interCell[ '4' ][ 1 ] = leaves[ 3 ]
+        interCell[ '0' ][ 1 ] = self.cellNames[ nodeCellId ]
+        interCell[ '1' ][ 1 ] = self.cellNames[ leaves[ 0 ] ]
+        interCell[ '2' ][ 1 ] = self.cellNames[ leaves[ 1 ] ]
+        interCell[ '3' ][ 1 ] = self.cellNames[ leaves[ 2 ] ]
+        interCell[ '4' ][ 1 ] = self.cellNames[ leaves[ 3 ] ]
 
         # outCells[ 0 ][ "cellType" ] = self.getCellFromMType( node )
         # outCells[ 1 ][ "cellType" ] = self.getCellFromMType( leaves[ 0 ] )
@@ -789,6 +768,8 @@ if __name__ == "__main__":
         os.makedirs( fileBase )
     
     sys.argv.append( "./NeurGen/4-leaf-topology.xml" )
+
+    ng.loadCommonNodes()
     # Lets generate 1000 random networks
     for i in range( 0, 30000 ):
         if( len( sys.argv ) > 1 ):
